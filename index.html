@@ -2,28 +2,41 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Shift or Shoot</title>
     <style>
-        body {
-            background-color: #000;
+        /* ▼▼▼ 変更点: レスポンシブ対応のスタイルを追加・調整 ▼▼▼ */
+        body, html {
             margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden; /* スクロールバーを非表示に */
+            background-color: #000;
             font-family: sans-serif;
             /* iOSでダブルタップによる拡大を防止 */
             touch-action: manipulation;
         }
-        canvas {
+        #gameContainer {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #gameCanvas {
             border: 1px solid #fff;
             background-color: #000;
+            /* JavaScriptによってサイズが制御される */
+            display: block;
         }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas" width="1120" height="600"></canvas>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="1120" height="600"></canvas>
+    </div>
+    
     <script>
         // ----------------------------------------------------------------
         // --- Vector2D Math Helper ---
@@ -268,22 +281,29 @@
 
             updatePosFromEvent(e) {
                 const rect = this.canvas.getBoundingClientRect();
+                
+                // 表示サイズと内部解像度の比率を計算
+                const scaleX = this.canvas.width / rect.width;
+                const scaleY = this.canvas.height / rect.height;
+
                 let clientX, clientY;
 
-                if (e.touches && e.touches.length > 0) { // タッチ開始・移動
+                if (e.touches && e.touches.length > 0) {
                     clientX = e.touches[0].clientX;
                     clientY = e.touches[0].clientY;
-                } else if (e.changedTouches && e.changedTouches.length > 0) { // タッチ終了
+                } else if (e.changedTouches && e.changedTouches.length > 0) {
                     clientX = e.changedTouches[0].clientX;
                     clientY = e.changedTouches[0].clientY;
-                } else { // マウス
+                } else {
                     clientX = e.clientX;
                     clientY = e.clientY;
                 }
-                this.mousePos.x = clientX - rect.left;
-                this.mousePos.y = clientY - rect.top;
-            }
-            // --- ▲▲▲ 変更ここまで ---
+                
+                // 比率を掛けて正しいゲーム内座標を算出
+                this.mousePos.x = (clientX - rect.left) * scaleX;
+                this.mousePos.y = (clientY - rect.top) * scaleY;
+            }            
+                // --- ▲▲▲ 変更ここまで ---
 
             handleMouseDown() { // e引数は不要に
                 const mouse_pos = this.mousePos.copy();
@@ -995,8 +1015,39 @@
         window.onload = () => {
             new SosGame('gameCanvas');
         };
+        // ▼▼▼ 変更点: ここからレスポンシブ対応のJavaScriptコードを追加 ▼▼▼
+        function resizeGame() {
+            const gameCanvas = document.getElementById('gameCanvas');
+            
+            const windowRatio = window.innerWidth / window.innerHeight;
+            const gameRatio = 1120 / 600;
+
+            let newWidth;
+            let newHeight;
+            
+            if (windowRatio > gameRatio) {
+                // ウィンドウがゲームより横長の場合 (上下に余白ができる)
+                newHeight = window.innerHeight;
+                newWidth = newHeight * gameRatio;
+            } else {
+                // ウィンドウがゲームより縦長の場合 (左右に余白ができる)
+                newWidth = window.innerWidth;
+                newHeight = newWidth / gameRatio;
+            }
+
+            gameCanvas.style.width = newWidth + 'px';
+            gameCanvas.style.height = newHeight + 'px';
+        }
+
+        window.addEventListener('resize', resizeGame);
+        // --- ▲▲▲ 変更ここまで ---
+
+        // --- Game Initialization ---
+        window.onload = () => {
+            // ▼▼▼ 変更点: ページ読み込み時にリサイズ処理を一度実行 ---
+            resizeGame(); 
+            new SosGame('gameCanvas');
+        };
     </script>
 </body>
 </html>
-
-
