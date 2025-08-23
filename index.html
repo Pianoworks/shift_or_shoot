@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Shift or Shoot</title>
     <style>
         body {
@@ -12,6 +13,8 @@
             align-items: center;
             height: 100vh;
             font-family: sans-serif;
+            /* iOSでダブルタップによる拡大を防止 */
+            touch-action: manipulation;
         }
         canvas {
             border: 1px solid #fff;
@@ -91,7 +94,6 @@
                 this.FRICTION_X = 0.96; this.FRICTION_Y = 0.96;
                 this.ANGULAR_FRICTION = 0.98;
                 this.POWER_MULTIPLIER = 0.12;
-
                 this.SIDE_FRICTION = 0.7;
                 this.STOP_THRESHOLD = 0.1;
                 this.ANGULAR_STOP_THRESHOLD = 0.1;
@@ -132,20 +134,19 @@
                 this.click_offset = new Vector2(0, 0);
                 this.score_popup_alpha = 0;
                 this.victory_sound_played = false;
-                // --- ▼▼▼ 変更点: 衝突音のクールダウン用タイマー ---
                 this.last_collision_sound_time = 0;
             }
 
             async loadAssets() {
                 const assetPaths = {
-                    title_image: 'assets/Title.png',
+                    title_image: 'assets/title.png',
                     about1: 'assets/about1.png', about2: 'assets/about2.png',
                     about3: 'assets/about3.png', about4: 'assets/about4.png',
                     candle0: 'assets/candle0.png', candle1: 'assets/candle1.png', candle2: 'assets/candle2.png',
                     wood_texture: 'assets/wood_texture.jpg', marble_texture: 'assets/marble_texture.jpg',
                     plate1: 'assets/plate1.jpg', plate2: 'assets/plate2.jpg', plate3: 'assets/plate3.jpg',
                     plate4: 'assets/plate4.jpg', plate5: 'assets/plate5.jpg', plate6: 'assets/plate6.jpg',
-                    BGM: 'assets/BGM.mp3', click: 'assets/click.mp3', shoot: 'assets/shoot.mp3',
+                    BGM: 'assets/BGM.wav', click: 'assets/click.mp3', shoot: 'assets/shoot.mp3',
                     collision: 'assets/collision.mp3', point: 'assets/point.mp3',
                     victory: 'assets/victory.mp3', notice: 'assets/notice.mp3',
                     roulette: 'assets/roulette.mp3', roulettedet: 'assets/roulettedet.mp3'
@@ -184,10 +185,11 @@
             }
             
             create_buttons() {
+                // --- ▼▼▼ 変更点 1: ボタン間の距離を広げる ---
                 this.title_buttons = {
                     start: new Button("Start Game", new Vector2(this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 + 100), "48px sans-serif", this.ctx),
-                    how_to: new Button("How to Play", new Vector2(this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 + 150), "32px sans-serif", this.ctx),
-                    about: new Button("About", new Vector2(this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 + 180), "32px sans-serif", this.ctx)
+                    how_to: new Button("How to Play", new Vector2(this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 + 160), "32px sans-serif", this.ctx),
+                    about: new Button("About", new Vector2(this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 + 220), "32px sans-serif", this.ctx)
                 };
                 this.sound_buttons = {
                     bgm: new Button("BGM on", new Vector2(230, this.SCREEN_HEIGHT - 30), "24px sans-serif", this.ctx),
@@ -222,29 +224,68 @@
                 }
             }
             
+            // --- ▼▼▼ 変更点 2: タッチイベントの対応を追加 ---
             setupEventListeners() {
+                // マウスイベント
                 this.canvas.addEventListener('mousedown', e => {
+                    this.updatePosFromEvent(e);
                     this.isMouseDown = true;
-                    this.handleMouseDown(e);
+                    this.handleMouseDown();
                 });
-                 this.canvas.addEventListener('mouseup', e => {
+                this.canvas.addEventListener('mouseup', e => {
+                    this.updatePosFromEvent(e);
                     this.isMouseDown = false;
-                    this.handleMouseUp(e);
+                    this.handleMouseUp();
                 });
                 this.canvas.addEventListener('mousemove', e => {
-                    const rect = this.canvas.getBoundingClientRect();
-                    this.mousePos.x = e.clientX - rect.left;
-                    this.mousePos.y = e.clientY - rect.top;
+                    this.updatePosFromEvent(e);
                 });
                 this.canvas.addEventListener('mouseleave', e => {
                     if (this.isMouseDown) {
                         this.isMouseDown = false;
-                        this.handleMouseUp(e);
+                        this.handleMouseUp();
                     }
                 });
+
+                // タッチイベント
+                this.canvas.addEventListener('touchstart', e => {
+                    e.preventDefault();
+                    this.updatePosFromEvent(e);
+                    this.isMouseDown = true;
+                    this.handleMouseDown();
+                }, { passive: false });
+                this.canvas.addEventListener('touchend', e => {
+                    e.preventDefault();
+                    this.updatePosFromEvent(e);
+                    this.isMouseDown = false;
+                    this.handleMouseUp();
+                }, { passive: false });
+                this.canvas.addEventListener('touchmove', e => {
+                    e.preventDefault();
+                    this.updatePosFromEvent(e);
+                }, { passive: false });
             }
 
-            handleMouseDown(e) {
+            updatePosFromEvent(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                let clientX, clientY;
+
+                if (e.touches && e.touches.length > 0) { // タッチ開始・移動
+                    clientX = e.touches[0].clientX;
+                    clientY = e.touches[0].clientY;
+                } else if (e.changedTouches && e.changedTouches.length > 0) { // タッチ終了
+                    clientX = e.changedTouches[0].clientX;
+                    clientY = e.changedTouches[0].clientY;
+                } else { // マウス
+                    clientX = e.clientX;
+                    clientY = e.clientY;
+                }
+                this.mousePos.x = clientX - rect.left;
+                this.mousePos.y = clientY - rect.top;
+            }
+            // --- ▲▲▲ 変更ここまで ---
+
+            handleMouseDown() { // e引数は不要に
                 const mouse_pos = this.mousePos.copy();
                 const sound_button_active_states = ["TITLE_SCREEN", "ABOUT_PAGE_1", "ABOUT_PAGE_2", "ABOUT_PAGE_3", "ABOUT_PAGE_4", "PLAYER_TURN", "PLATES_MOVING", "CANDLE_ANIMATION", "GAME_OVER", "FIRST_PLAYER_ROULETTE", "SHOWING_ROULETTE_RESULT"];
                 if (sound_button_active_states.includes(this.game_state)) {
@@ -319,7 +360,7 @@
                 }
             }
             
-            handleMouseUp(e) {
+            handleMouseUp() { // e引数は不要に
                 if (this.game_state === "PLAYER_TURN" && this.selected_plate) {
                     const force_vector = this.drag_start_pos.sub(this.mousePos);
                     if (force_vector.length() > 5) {
@@ -430,9 +471,8 @@
                         const p2 = this.plates[j];
                         const [is_colliding, mtv, collision_point] = this.check_collision_sat(p1, p2);
                         if (is_colliding) {
-                            // --- ▼▼▼ 変更点: 衝突音の再生を有効化 + クールダウン追加 ---
                             const now = performance.now();
-                            if (now - this.last_collision_sound_time > 50) { // 50ms (0.05秒)のクールダウン
+                            if (now - this.last_collision_sound_time > 50) {
                                 this.play_sound('collision');
                                 this.last_collision_sound_time = now;
                             }
@@ -957,6 +997,4 @@
         };
     </script>
 </body>
-
 </html>
-
