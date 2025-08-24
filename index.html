@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Shift or Shoot</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/core-js/3.37.1/minified.js" integrity="sha512-32odKCnaU42+2HlZ/G2dGk2J/aM2Kl2DkCxl3qJk5T5o6/8d3h+sqsVbI2HmT9L9s1F8f7vwD+9P22k22L2Qg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/core-js/3.37.1/minified.js" integrity="sha512-0zxr+q1dkyVXy7SJTrE7TT50Sg4/oeu8lahBVgKxCRH+0RW/41tO3tCcxnHiGO0DrSzwEQJLw9URq6+b1KtMlQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #000; font-family: sans-serif; touch-action: manipulation; }
         #gameContainer { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
@@ -74,21 +76,30 @@
                 this.assets = {};
                 this.gameLoop = this.gameLoop.bind(this);
                 
-                // --- ▼▼▼ 変更点 2: スマートフォン判定とアセットパス設定 ---
-                this.asset_path = 'assets/'; // デフォルトパス
+                this.asset_path = 'assets/';
                 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (window.innerWidth < 768);
                 if (isMobile) {
-                    this.asset_path = 'smallassets/'; // スマートフォンなら軽量版のパスに
+                    this.asset_path = 'smallassets/';
                 }
                 
                 this.init_game_session();
-                this.loadAssets().then(() => {
-                    this.create_buttons();
-                    this.game_state = "FADE_IN_TO_TITLE";
-                    this.assets.BGM.loop = true;
-                    this.setupEventListeners();
-                    requestAnimationFrame(this.gameLoop);
-                });
+                this.loadAssets()
+                    .then(() => {
+                        this.create_buttons();
+                        this.game_state = "FADE_IN_TO_TITLE";
+                        this.assets.BGM.loop = true;
+                        this.setupEventListeners();
+                        requestAnimationFrame(this.gameLoop);
+                    })
+                    // --- ▼▼▼ 変更点 3: アセット読み込み失敗時のエラーハンドリングを追加 ▼▼▼
+                    .catch(error => {
+                        console.error("アセットの読み込みに失敗しました:", error);
+                        this.ctx.fillStyle = "red";
+                        this.ctx.font = "24px sans-serif";
+                        this.ctx.textAlign = "center";
+                        this.ctx.fillText("Error: Failed to load assets.", this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 - 30);
+                        this.ctx.fillText("Please check the browser console (F12) for details.", this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 + 10);
+                    });
             }
 
             init_game_session() {
@@ -113,7 +124,7 @@
             async loadAssets() {
                 // --- ▼▼▼ 変更点 2: アセットパスを動的に変更 ---
                 const assetPaths = {
-                    title_image: this.asset_path + 'Title.png', about1: this.asset_path + 'about1.png', about2: this.asset_path + 'about2.png', about3: this.asset_path + 'about3.png', about4: this.asset_path + 'about4.png',
+                    title_image: this.asset_path + 'title.png', about1: this.asset_path + 'about1.png', about2: this.asset_path + 'about2.png', about3: this.asset_path + 'about3.png', about4: this.asset_path + 'about4.png',
                     candle0: this.asset_path + 'candle0.png', candle1: this.asset_path + 'candle1.png', candle2: this.asset_path + 'candle2.png',
                     wood_texture: this.asset_path + 'wood_texture.jpg', marble_texture: this.asset_path + 'marble_texture.jpg',
                     plate1: this.asset_path + 'plate1.jpg', plate2: this.asset_path + 'plate2.jpg', plate3: this.asset_path + 'plate3.jpg', plate4: this.asset_path + 'plate4.jpg', plate5: this.asset_path + 'plate5.jpg', plate6: this.asset_path + 'plate6.jpg',
@@ -997,4 +1008,3 @@
     </script>
 </body>
 </html>
-
