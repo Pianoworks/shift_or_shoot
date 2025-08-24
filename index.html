@@ -71,7 +71,7 @@
                 this.SIDE_FRICTION = 0.7;
                 this.STOP_THRESHOLD = 0.1;
                 this.ANGULAR_STOP_THRESHOLD = 0.1;
-                this.TORQUE_MULTIPLIER = 0.0018;
+                this.TORQUE_MULTIPLIER = 0.0016;
                 this.COLLISION_ELASTICITY = 0.85;
                 this.PLATE_INERTIA = (this.PLATE_SIZE ** 2) / 6;
 
@@ -95,7 +95,6 @@
                         this.game_state = "FADE_IN_TO_TITLE";
                         this.assets.BGM.onload = function() {
                             this.assets.BGM.loop = true;
-                            this.assets.BGM.play();
                             };
                         this.setupEventListeners();
                         requestAnimationFrame(this.gameLoop);
@@ -1045,6 +1044,7 @@
     </script>
 </body>
 </html>
+
 
 
 
