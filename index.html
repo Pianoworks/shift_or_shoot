@@ -93,7 +93,10 @@
                     .then(() => {
                         this.create_buttons();
                         this.game_state = "FADE_IN_TO_TITLE";
-                        this.assets.BGM.loop = true;
+                        this.assets.BGM.onload = function() {
+                            this.assets.BGM.loop = true;
+                            this.assets.BGM.play();
+                            };
                         this.setupEventListeners();
                         requestAnimationFrame(this.gameLoop);
                     })
@@ -1042,6 +1045,7 @@
     </script>
 </body>
 </html>
+
 
 
 
