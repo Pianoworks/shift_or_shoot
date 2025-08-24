@@ -4,33 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Shift or Shoot</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/core-js/3.37.1/minified.js" integrity="sha512-32odKCnaU42+2HlZ/G2dGk2J/aM2Kl2DkCxl3qJk5T5o6/8d3h+sqsVbI2HmT9L9s1F8f7vwD+9P22k22L2Qg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script> 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/core-js/3.37.1/minified.js" integrity="sha512-32odKCnaU42+2HlZ/G2dGk2J/aM2Kl2DkCxl3qJk5T5o6/8d3h+sqsVbI2HmT9L9s1F8f7vwD+9P22k22L2Qg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <style>
-        /* ▼▼▼ 変更点: レスポンシブ対応のスタイルを追加・調整 ▼▼▼ */
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden; /* スクロールバーを非表示に */
-            background-color: #000;
-            font-family: sans-serif;
-            /* iOSでダブルタップによる拡大を防止 */
-            touch-action: manipulation;
-        }
-        #gameContainer {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        #gameCanvas {
-            border: 1px solid #fff;
-            background-color: #000;
-            /* JavaScriptによってサイズが制御される */
-            display: block;
-        }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #000; font-family: sans-serif; touch-action: manipulation; }
+        #gameContainer { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+        #gameCanvas { border: 1px solid #fff; background-color: #000; display: block; }
     </style>
 </head>
 <body>
@@ -39,48 +17,22 @@
     </div>
     
     <script>
-        // ----------------------------------------------------------------
-        // --- Vector2D Math Helper ---
-        // ----------------------------------------------------------------
         class Vector2 {
-            constructor(x = 0, y = 0) {
-                this.x = x;
-                this.y = y;
-            }
-
+            constructor(x = 0, y = 0) { this.x = x; this.y = y; }
             add(v) { return new Vector2(this.x + v.x, this.y + v.y); }
             sub(v) { return new Vector2(this.x - v.x, this.y - v.y); }
             multiply(scalar) { return new Vector2(this.x * scalar, this.y * scalar); }
             divide(scalar) { return new Vector2(this.x / scalar, this.y / scalar); }
-            
             length() { return Math.sqrt(this.x * this.x + this.y * this.y); }
             lengthSquared() { return this.x * this.x + this.y * this.y; }
-
-            normalize() {
-                const len = this.length();
-                return len > 0 ? this.divide(len) : new Vector2();
-            }
-
+            normalize() { const len = this.length(); return len > 0 ? this.divide(len) : new Vector2(); }
             dot(v) { return this.x * v.x + this.y * v.y; }
             cross(v) { return this.x * v.y - this.y * v.x; }
-
-            rotate(angleDegrees) {
-                const rad = angleDegrees * (Math.PI / 180);
-                const cos = Math.cos(rad);
-                const sin = Math.sin(rad);
-                return new Vector2(this.x * cos - this.y * sin, this.x * sin + this.y * cos);
-            }
-            
-            lerp(target, alpha) {
-                return this.add(target.sub(this).multiply(alpha));
-            }
-            
+            rotate(angleDegrees) { const rad = angleDegrees * (Math.PI / 180); const cos = Math.cos(rad); const sin = Math.sin(rad); return new Vector2(this.x * cos - this.y * sin, this.x * sin + this.y * cos); }
+            lerp(target, alpha) { return this.add(target.sub(this).multiply(alpha)); }
             copy() { return new Vector2(this.x, this.y); }
         }
 
-        // ----------------------------------------------------------------
-        // --- Main Game Logic ---
-        // ----------------------------------------------------------------
         class SosGame {
             constructor(canvasId) {
                 this.canvas = document.getElementById(canvasId);
@@ -122,6 +74,13 @@
                 this.assets = {};
                 this.gameLoop = this.gameLoop.bind(this);
                 
+                // --- ▼▼▼ 変更点 2: スマートフォン判定とアセットパス設定 ---
+                this.asset_path = 'assets/'; // デフォルトパス
+                const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (window.innerWidth < 768);
+                if (isMobile) {
+                    this.asset_path = 'smallassets/'; // スマートフォンなら軽量版のパスに
+                }
+                
                 this.init_game_session();
                 this.loadAssets().then(() => {
                     this.create_buttons();
@@ -152,30 +111,21 @@
             }
 
             async loadAssets() {
+                // --- ▼▼▼ 変更点 2: アセットパスを動的に変更 ---
                 const assetPaths = {
-                    title_image: 'assets/Title.png',
-                    about1: 'assets/about1.png', about2: 'assets/about2.png',
-                    about3: 'assets/about3.png', about4: 'assets/about4.png',
-                    candle0: 'assets/candle0.png', candle1: 'assets/candle1.png', candle2: 'assets/candle2.png',
-                    wood_texture: 'assets/wood_texture.jpg', marble_texture: 'assets/marble_texture.jpg',
-                    plate1: 'assets/plate1.jpg', plate2: 'assets/plate2.jpg', plate3: 'assets/plate3.jpg',
-                    plate4: 'assets/plate4.jpg', plate5: 'assets/plate5.jpg', plate6: 'assets/plate6.jpg',
-                    BGM: 'assets/BGM.mp3', click: 'assets/click.mp3', shoot: 'assets/shoot.mp3',
-                    collision: 'assets/collision.mp3', point: 'assets/point.mp3',
-                    victory: 'assets/victory.mp3', notice: 'assets/notice.mp3',
-                    roulette: 'assets/roulette.mp3', roulettedet: 'assets/roulettedet.mp3'
+                    title_image: this.asset_path + 'title.png', about1: this.asset_path + 'about1.png', about2: this.asset_path + 'about2.png', about3: this.asset_path + 'about3.png', about4: this.asset_path + 'about4.png',
+                    candle0: this.asset_path + 'candle0.png', candle1: this.asset_path + 'candle1.png', candle2: this.asset_path + 'candle2.png',
+                    wood_texture: this.asset_path + 'wood_texture.jpg', marble_texture: this.asset_path + 'marble_texture.jpg',
+                    plate1: this.asset_path + 'plate1.jpg', plate2: this.asset_path + 'plate2.jpg', plate3: this.asset_path + 'plate3.jpg', plate4: this.asset_path + 'plate4.jpg', plate5: this.asset_path + 'plate5.jpg', plate6: this.asset_path + 'plate6.jpg',
+                    BGM: this.asset_path + 'BGM.mp3', click: this.asset_path + 'click.mp3', shoot: this.asset_path + 'shoot.mp3', collision: this.asset_path + 'collision.mp3', point: this.asset_path + 'point.mp3',
+                    victory: this.asset_path + 'victory.mp3', notice: this.asset_path + 'notice.mp3', roulette: this.asset_path + 'roulette.mp3', roulettedet: this.asset_path + 'roulettedet.mp3'
                 };
                 const assetPromises = Object.entries(assetPaths).map(([key, path]) => {
                     return new Promise((resolve, reject) => {
                         if (path.endsWith('.png') || path.endsWith('.jpg')) {
-                            const img = new Image();
-                            img.src = path;
-                            img.onload = () => { this.assets[key] = img; resolve(); };
-                            img.onerror = reject;
+                            const img = new Image(); img.src = path; img.onload = () => { this.assets[key] = img; resolve(); }; img.onerror = reject;
                         } else {
-                            const audio = new Audio(path);
-                            audio.oncanplaythrough = () => { this.assets[key] = audio; resolve(); };
-                            audio.onerror = reject;
+                            const audio = new Audio(path); audio.oncanplaythrough = () => { this.assets[key] = audio; resolve(); }; audio.onerror = reject;
                         }
                     });
                 });
@@ -184,11 +134,11 @@
                 this.assets.candle_images = { 0: this.assets.candle0, 1: this.assets.candle1, 2: this.assets.candle2 };
                 this.assets.plate_textures = [this.assets.plate1, this.assets.plate2, this.assets.plate3, this.assets.plate4, this.assets.plate5, this.assets.plate6];
                 this.assets.sounds = {
-                     click: this.assets.click, shoot: this.assets.shoot, collision: this.assets.collision,
-                     point: this.assets.point, victory: this.assets.victory, notice: this.assets.notice,
+                     click: this.assets.click, shoot: this.assets.shoot, collision: this.assets.collision, point: this.assets.point, victory: this.assets.victory, notice: this.assets.notice,
                      roulette: this.assets.roulette, roulettedet: this.assets.roulettedet
                 };
             }
+
 
             play_sound(sound_name) {
                 if (this.se_on) {
@@ -199,15 +149,14 @@
             }
             
             create_buttons() {
-                // --- ▼▼▼ 変更点 1: ボタン間の距離を広げる ---
                 this.title_buttons = {
-                    start: new Button("Start Game", new Vector2(this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 + 80), "48px sans-serif", this.ctx),
+                    start: new Button("Start Game", new Vector2(this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 + 100), "48px sans-serif", this.ctx),
                     how_to: new Button("How to Play", new Vector2(this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 + 160), "32px sans-serif", this.ctx),
                     about: new Button("About", new Vector2(this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 + 220), "32px sans-serif", this.ctx)
                 };
                 this.sound_buttons = {
-                    bgm: new Button("BGM on", new Vector2(230, this.SCREEN_HEIGHT - 30), "32px sans-serif", this.ctx),
-                    se: new Button("SE on", new Vector2(350, this.SCREEN_HEIGHT - 30), "32px sans-serif", this.ctx)
+                    bgm: new Button("BGM on", new Vector2(230, this.SCREEN_HEIGHT - 30), "24px sans-serif", this.ctx),
+                    se: new Button("SE on", new Vector2(350, this.SCREEN_HEIGHT - 30), "24px sans-serif", this.ctx)
                 };
                 this.game_over_buttons = {
                     restart: new Button("Start next Game", new Vector2(this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 + 50), "32px sans-serif", this.ctx),
@@ -238,7 +187,6 @@
                 }
             }
             
-            // --- ▼▼▼ 変更点 2: タッチイベントの対応を追加 ---
             setupEventListeners() {
                 // マウスイベント
                 this.canvas.addEventListener('mousedown', e => {
@@ -304,7 +252,6 @@
                 this.mousePos.x = (clientX - rect.left) * scaleX;
                 this.mousePos.y = (clientY - rect.top) * scaleY;
             }            
-                // --- ▲▲▲ 変更ここまで ---
 
             handleMouseDown() { // e引数は不要に
                 const mouse_pos = this.mousePos.copy();
@@ -1016,7 +963,6 @@
         window.onload = () => {
             new SosGame('gameCanvas');
         };
-        // ▼▼▼ 変更点: ここからレスポンシブ対応のJavaScriptコードを追加 ▼▼▼
         function resizeGame() {
             const gameCanvas = document.getElementById('gameCanvas');
             
@@ -1041,7 +987,6 @@
         }
 
         window.addEventListener('resize', resizeGame);
-        // --- ▲▲▲ 変更ここまで ---
 
         // --- Game Initialization ---
         window.onload = () => {
@@ -1052,7 +997,3 @@
     </script>
 </body>
 </html>
-
-
-
-
