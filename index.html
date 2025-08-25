@@ -511,6 +511,7 @@
                             this.candle_alpha = 255 * (1 - this.anim_progress);
                         }
                     },
+ 
                     "CPU_THINKING": () => {
                         this.cpu_thinking_timer--;
                         if (this.cpu_thinking_timer <= 0) {
@@ -526,7 +527,8 @@
                     allStateActions[this.game_state]();
                 }
             }
-                    // --- ▼▼▼ 変更点: CPUの思考と操作を行うメソッドを追加 ---
+            
+            // --- ▼▼▼ 変更点: CPUの思考と操作を行うメソッドを追加 ---
             perform_ai_move() {
                 const miss_chance = this.cpu_difficulty === 'easy' ? 0.2 : 0.1;
 
@@ -608,9 +610,6 @@
                     this.play_sound('notice');
                     this.start_turn_effects();
                 }
-            }
-                };
-                if (stateActions[this.game_state]) stateActions[this.game_state]();
             }
 
             resolve_collisions() {
@@ -1178,6 +1177,7 @@
     </script>
 </body>
 </html>
+
 
 
 
