@@ -97,16 +97,13 @@
                         this.setupEventListeners();
                         requestAnimationFrame(this.gameLoop);
                     })
-                        this.setupEventListeners();
-                        requestAnimationFrame(this.gameLoop);
-                    })
                     .catch(error => {
                         console.error("アセットの読み込みに失敗しました:", error);
                         this.ctx.fillStyle = "red";
                         this.ctx.font = "24px sans-serif";
                         this.ctx.textAlign = "center";
                         this.ctx.fillText("Error: Failed to load assets.", this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 - 30);
-                        this.ctx.fillText("Please check the browser console (F12) for details.", this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 + 10);
+                        this.ctx.fillText("Please check the browser console (F12) for details.", this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 + 10);    
                     });
             }
 
@@ -1181,6 +1178,7 @@
     </script>
 </body>
 </html>
+
 
 
 
