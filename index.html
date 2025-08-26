@@ -70,7 +70,7 @@
                 this.SIDE_FRICTION = 0.7;
                 this.STOP_THRESHOLD = 0.1;
                 this.ANGULAR_STOP_THRESHOLD = 0.1;
-                this.TORQUE_MULTIPLIER = 0.0018;
+                this.TORQUE_MULTIPLIER = 0.0016;
                 this.COLLISION_ELASTICITY = 0.85;
                 this.PLATE_INERTIA = (this.PLATE_SIZE ** 2) / 6;
 
@@ -98,7 +98,9 @@
                     })
                     .catch(error => {
                         console.error("アセットの読み込みに失敗しました:", error);
-                        this.ctx.fillStyle = "red"; this.ctx.font = "24px sans-serif"; this.ctx.textAlign = "center";
+                        this.ctx.fillStyle = "red";
+                        this.ctx.font = "24px sans-serif";
+                        this.ctx.textAlign = "center";
                         this.ctx.fillText("Error: Failed to load assets.", this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 - 30);
                         this.ctx.fillText("Please check the browser console (F12) for details.", this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 + 10);
                     });
@@ -132,18 +134,29 @@
                     candle0: this.asset_path + 'candle0.png', candle1: this.asset_path + 'candle1.png', candle2: this.asset_path + 'candle2.png',
                     wood_texture: this.asset_path + 'wood_texture.jpg', marble_texture: this.asset_path + 'marble_texture.jpg',
                     plate1: this.asset_path + 'plate1.jpg', plate2: this.asset_path + 'plate2.jpg', plate3: this.asset_path + 'plate3.jpg', plate4: this.asset_path + 'plate4.jpg', plate5: this.asset_path + 'plate5.jpg', plate6: this.asset_path + 'plate6.jpg',
-                    BGM: this.asset_path + 'BGM.mp3', click: this.asset_path + 'click.mp3', shoot: this.asset_path + 'shoot.mp3', collision: this.asset_path + 'collision.mp3', point: this.asset_path + 'point.mp3',
+                    // --- ▼▼▼ 変更点 1: BGMをMP3形式に変更 ▼▼▼
+                    BGM: this.asset_path + 'BGM.mp3', 
+                    click: this.asset_path + 'click.mp3', shoot: this.asset_path + 'shoot.mp3', collision: this.asset_path + 'collision.mp3', point: this.asset_path + 'point.mp3',
                     victory: this.asset_path + 'victory.mp3', notice: this.asset_path + 'notice.mp3', roulette: this.asset_path + 'roulette.mp3', roulettedet: this.asset_path + 'roulettedet.mp3'
                 };
+                
+                // --- ▼▼▼ 変更点 2: 読み込みにタイムアウト処理を追加 ▼▼▼
                 const assetPromises = Object.entries(assetPaths).map(([key, path]) => {
-                    return new Promise((resolve, reject) => {
+                    const loadPromise = new Promise((resolve, reject) => {
                         if (path.endsWith('.png') || path.endsWith('.jpg')) {
                             const img = new Image(); img.src = path; img.onload = () => { this.assets[key] = img; resolve(); }; img.onerror = () => reject(`Image failed to load: ${path}`);
                         } else {
                             const audio = new Audio(path); audio.oncanplaythrough = () => { this.assets[key] = audio; resolve(); }; audio.onerror = () => reject(`Audio failed to load: ${path}`);
                         }
                     });
+
+                    const timeoutPromise = new Promise((_, reject) => {
+                        setTimeout(() => reject(`Asset timed out: ${path}`), 15000); // 15秒でタイムアウト
+                    });
+
+                    return Promise.race([loadPromise, timeoutPromise]);
                 });
+
                 await Promise.all(assetPromises);
                 this.assets.about_images = [this.assets.about1, this.assets.about2, this.assets.about3, this.assets.about4];
                 this.assets.candle_images = { 0: this.assets.candle0, 1: this.assets.candle1, 2: this.assets.candle2 };
@@ -153,6 +166,7 @@
                      roulette: this.assets.roulette, roulettedet: this.assets.roulettedet
                 };
             }
+
 
             play_sound(sound_name) {
                 if (this.se_on) {
@@ -377,3 +391,4 @@
     </script>
 </body>
 </html>
+
