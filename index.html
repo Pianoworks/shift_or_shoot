@@ -193,9 +193,7 @@
                 const mouse_pos = this.mousePos.copy();
                 const sound_button_active_states = ["TITLE_SCREEN", "MODE_SELECTION", "DIFFICULTY_SELECTION", "ABOUT_PAGE_1", "ABOUT_PAGE_2", "ABOUT_PAGE_3", "ABOUT_PAGE_4", "PLAYER_TURN", "CPU_THINKING", "PLATES_MOVING", "CANDLE_ANIMATION", "GAME_OVER", "FIRST_PLAYER_ROULETTE", "SHOWING_ROULETTE_RESULT"];
                 if (sound_button_active_states.includes(this.game_state)) {
-                    if (this.sound_buttons.bgm.check_hover(mouse_pos)) {
-                        this.bgm_on = !this.bgm_on; this.sound_buttons.bgm.text = this.bgm_on ? "BGM on" : "BGM off"; if (this.bgm_on) { this.assets.BGM.play(); } else { this.assets.BGM.pause(); } return;
-                    }
+                    if (this.sound_buttons.bgm.check_hover(mouse_pos)) { this.bgm_on = !this.bgm_on; this.sound_buttons.bgm.text = this.bgm_on ? "BGM on" : "BGM off"; if (this.bgm_on) { this.assets.BGM.play(); } else { this.assets.BGM.pause(); } return; }
                     if (this.sound_buttons.se.check_hover(mouse_pos)) { this.se_on = !this.se_on; this.sound_buttons.se.text = this.se_on ? "SE on" : "SE off"; return; }
                 }
                 
@@ -253,7 +251,7 @@
             }
 
             perform_easy_ai_move(is_fallback = false) {
-                const miss_chance = this.cpu_difficulty === 'easy' ? 0.2 : 0.1;
+                const miss_chance = this.cpu_difficulty === 'easy' ? 0.2 : 0.0; // Normalのミスは0%
                 const player_plates = this.plates.filter(p => p.owner === 1);
                 const cpu_plates = this.plates.filter(p => p.owner === 2);
                 if (cpu_plates.length === 0) return;
@@ -302,25 +300,21 @@
                 const player_goal_line_x = board_x + this.BOARD_WIDTH;
                 const player_goal_center_y = this.SCREEN_HEIGHT / 2;
                 
-                // 1. ゴールを狙える最高のショットを探す
                 let best_shot = null;
                 let best_shot_score = -Infinity;
 
                 for (const plate of cpu_plates) {
-                    // 相手ゴールの中心を狙う
                     const target = new Vector2(player_goal_line_x, player_goal_center_y);
-                    const force_vector = target.sub(plate.pos).normalize().multiply(200); // 最大パワー
+                    const force_vector = target.sub(plate.pos).normalize().multiply(200);
                     
                     const outcome = this.simulate_shot(plate, force_vector);
                     
                     if (outcome.scored && !outcome.penalty) {
-                        // ペナルティなしでゴールできるなら、それが最善手
                         best_shot = { plate, force_vector };
-                        break; // 最善手が見つかったので探索終了
+                        break;
                     }
                     
                     if (!outcome.penalty) {
-                        // ペナルティがないショットの中で、最もゴールに近づけるものを探す
                         let score = -Math.min(...outcome.final_plates.filter(p => p.owner === 2).map(p => Math.abs(p.pos.x - player_goal_line_x)));
                         if (score > best_shot_score) {
                             best_shot_score = score;
@@ -330,18 +324,14 @@
                 }
 
                 if (best_shot) {
-                    // 有効な手が見つかった
                     this.play_sound('shoot');
                     best_shot.plate.apply_force_and_torque(best_shot.force_vector, new Vector2(0,0));
                 } else {
-                    // 有効な攻撃手がない場合、安全な手（Easyロジックの簡易版）を打つ
                     this.perform_easy_ai_move(true);
                 }
             }
 
-            // AIの思考用シミュレーション関数
             simulate_shot(plate_to_shoot, force_vector) {
-                // 1. 現状の盤面をディープコピー
                 const sim_plates = this.plates.map(p => {
                     const new_plate = new Plate(p.owner, p.id, p.pos.x, p.pos.y, p.original_image, p.angle, this);
                     new_plate.vel = p.vel.copy();
@@ -352,11 +342,9 @@
                 const sim_plate_to_shoot = sim_plates.find(p => p.owner === plate_to_shoot.owner && p.id === plate_to_shoot.id);
                 if (!sim_plate_to_shoot) return { scored: false, penalty: false, final_plates: sim_plates };
 
-                // 2. ショットをシミュレート
                 sim_plate_to_shoot.apply_force_and_torque(force_vector, new Vector2(0,0));
 
-                // 3. 物理演算ループを回す
-                for (let i = 0; i < 240; i++) { // 4秒分(240フレーム)シミュレーション
+                for (let i = 0; i < 240; i++) {
                     if (!sim_plates.some(p => p.is_moving())) break;
                     sim_plates.forEach(p => p.update());
                     
@@ -365,14 +353,14 @@
                             const p1 = sim_plates[k]; const p2 = sim_plates[l];
                             const [is_colliding, mtv] = this.check_collision_sat(p1, p2);
                             if (is_colliding) {
-                                if (mtv.lengthSquared() === 0) continue;
-                                p1.pos = p1.pos.sub(mtv.divide(2)); p2.pos = p2.pos.add(mtv.divide(2)); p1.update_corners(); p2.update_corners();
+                                if (mtv.lengthSquared() > 0) {
+                                    p1.pos = p1.pos.sub(mtv.divide(2)); p2.pos = p2.pos.add(mtv.divide(2)); p1.update_corners(); p2.update_corners();
+                                }
                             }
                         }
                     }
                 }
                 
-                // 4. 結果を判定
                 const board_x = (this.SCREEN_WIDTH - this.BOARD_WIDTH) / 2;
                 const board_y = (this.SCREEN_HEIGHT - this.BOARD_HEIGHT) / 2;
                 const board_rect = { x: board_x, y: board_y, width: this.BOARD_WIDTH, height: this.BOARD_HEIGHT, left: board_x, right: board_x + this.BOARD_WIDTH };
@@ -387,7 +375,11 @@
                             penalty = true;
                         } else if (p.owner === 2) {
                             if (p.corners.every(c => c.x > board_rect.right)) {
-                                scored = true;
+                                const p_min_y = Math.min(...p.corners.map(c => c.y));
+                                const p_max_y = Math.max(...p.corners.map(c => c.y));
+                                if (p_max_y > board_rect.y && p_min_y < board_rect.y + board_rect.height) {
+                                    scored = true;
+                                }
                             }
                         }
                     }
