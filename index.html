@@ -122,7 +122,6 @@
                 this.drag_start_pos = null;
                 this.click_offset = new Vector2(0, 0);
                 this.score_popup_alpha = 0;
-                this.score_popup_timer = 0;
                 this.victory_sound_played = false;
                 this.last_collision_sound_time = 0;
             }
@@ -131,6 +130,8 @@
                 const assetPaths = {
                     title_image: this.asset_path + 'title.png', about1: this.asset_path + 'about1.png', about2: this.asset_path + 'about2.png', about3: this.asset_path + 'about3.png', about4: this.asset_path + 'about4.png',
                     candle0: this.asset_path + 'candle0.png', candle1: this.asset_path + 'candle1.png', candle2: this.asset_path + 'candle2.png',
+                    wood_texture: this.asset_path + 'wood_texture.jpg', marble_texture: this.asset_path + 'marble_texture.jpg',
+                    plate1: this.asset_path + 'plate1.jpg', plate2: this.asset_path + 'plate2.jpg', plate3: this.asset_path + 'plate3.jpg', plate4: this.asset_path + 'plate4.jpg', plate5: this.asset_path + 'plate5.jpg', plate6: this.asset_path + 'plate6.jpg',
                     bgm: this.asset_path + 'bgm.mp3', click: this.asset_path + 'click.mp3', shoot: this.asset_path + 'shoot.mp3', collision: this.asset_path + 'collision.mp3', point: this.asset_path + 'point.mp3',
                     victory: this.asset_path + 'victory.mp3', notice: this.asset_path + 'notice.mp3', roulette: this.asset_path + 'roulette.mp3', roulettedet: this.asset_path + 'roulettedet.mp3'
                 };
@@ -145,10 +146,11 @@
                     const timeoutPromise = new Promise((_, reject) => { setTimeout(() => reject(`Asset timed out: ${path}`), 15000); });
                     return Promise.race([loadPromise, timeoutPromise]);
                 });
+
                 await Promise.all(assetPromises);
                 this.assets.about_images = [this.assets.about1, this.assets.about2, this.assets.about3, this.assets.about4];
                 this.assets.candle_images = { 0: this.assets.candle0, 1: this.assets.candle1, 2: this.assets.candle2 };
-                this.assets.plate_textures = []; // This will be populated after asset loading
+                this.assets.plate_textures = [this.assets.plate1, this.assets.plate2, this.assets.plate3, this.assets.plate4, this.assets.plate5, this.assets.plate6];
                 this.assets.sounds = {
                      click: this.assets.click, shoot: this.assets.shoot, collision: this.assets.collision, point: this.assets.point, victory: this.assets.victory, notice: this.assets.notice,
                      roulette: this.assets.roulette, roulettedet: this.assets.roulettedet
@@ -172,7 +174,7 @@
                     normal: new Button("Normal", new Vector2(this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 + 200), "48px sans-serif", this.ctx)
                 };
                 this.sound_buttons = {
-                    bgm: new Button("BGM on", new Vector2(230, this.SCREEN_HEIGHT - 30), "32px sans-serif", this.ctx),
+                    bgm: new Button("bgm on", new Vector2(230, this.SCREEN_HEIGHT - 30), "32px sans-serif", this.ctx),
                     se: new Button("SE on", new Vector2(430, this.SCREEN_HEIGHT - 30), "32px sans-serif", this.ctx)
                 };
                 this.game_over_buttons = {
@@ -181,20 +183,14 @@
                 };
             }
 
-            _setup_board() {
-                this.plates = [];
-                const textures = [this.assets.plate1, this.assets.plate2, this.assets.plate3, this.assets.plate4, this.assets.plate5, this.assets.plate6];
-                for (let i = 1; i <= 3; i++) this._place_randomly(1, i, textures[i - 1]);
-                for (let i = 1; i <= 3; i++) this._place_randomly(2, i, textures[i - 1 + 3]);
-            }
-
+            _setup_board() { this.plates = []; for (let i = 1; i <= 3; i++) this._place_randomly(1, i, this.assets.plate_textures[i - 1]); for (let i = 1; i <= 3; i++) this._place_randomly(2, i, this.assets.plate_textures[i - 1 + 3]); }
             _place_randomly(player, plate_id, texture) { const board_x = (this.SCREEN_WIDTH - this.BOARD_WIDTH) / 2; const board_y = (this.SCREEN_HEIGHT - this.BOARD_HEIGHT) / 2; const half_board = this.BOARD_WIDTH / 2; const x_range = (player === 1) ? [board_x, board_x + half_board] : [board_x + half_board, board_x + this.BOARD_WIDTH]; while (true) { const pos_x = Math.random() * (x_range[1] - x_range[0] - this.PLATE_SIZE) + x_range[0] + this.PLATE_SIZE / 2; const pos_y = Math.random() * (this.BOARD_HEIGHT - this.PLATE_SIZE) + board_y + this.PLATE_SIZE / 2; const angle = Math.random() * 90; const temp_plate = new Plate(player, plate_id, pos_x, pos_y, texture, angle, this); if (!this.plates.some(p => this.check_collision_sat(p, temp_plate)[0])) { this.plates.push(temp_plate); break; } } }
             setupEventListeners() { this.canvas.addEventListener('mousedown', e => { this.updatePosFromEvent(e); this.isMouseDown = true; this.handleMouseDown(); }); this.canvas.addEventListener('mouseup', e => { this.updatePosFromEvent(e); this.isMouseDown = false; this.handleMouseUp(); }); this.canvas.addEventListener('mousemove', e => { this.updatePosFromEvent(e); }); this.canvas.addEventListener('mouseleave', e => { if (this.isMouseDown) { this.isMouseDown = false; this.handleMouseUp(); } }); this.canvas.addEventListener('touchstart', e => { e.preventDefault(); this.updatePosFromEvent(e); this.isMouseDown = true; this.handleMouseDown(); }, { passive: false }); this.canvas.addEventListener('touchend', e => { e.preventDefault(); this.updatePosFromEvent(e); this.isMouseDown = false; this.handleMouseUp(); }, { passive: false }); this.canvas.addEventListener('touchmove', e => { e.preventDefault(); this.updatePosFromEvent(e); }, { passive: false }); }
             updatePosFromEvent(e) { const rect = this.canvas.getBoundingClientRect(); const scaleX = this.canvas.width / rect.width; const scaleY = this.canvas.height / rect.height; let clientX, clientY; if (e.touches && e.touches.length > 0) { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; } else if (e.changedTouches && e.changedTouches.length > 0) { clientX = e.changedTouches[0].clientX; clientY = e.changedTouches[0].clientY; } else { clientX = e.clientX; clientY = e.clientY; } this.mousePos.x = (clientX - rect.left) * scaleX; this.mousePos.y = (clientY - rect.top) * scaleY; }
             
             handleMouseDown() {
                 const mouse_pos = this.mousePos.copy();
-                const sound_button_active_states = ["TITLE_SCREEN", "MODE_SELECTION", "DIFFICULTY_SELECTION", "ABOUT_PAGE_1", "ABOUT_PAGE_2", "ABOUT_PAGE_3", "ABOUT_PAGE_4", "PLAYER_TURN", "CPU_THINKING", "PLATES_MOVING", "CANDLE_ANIMATION", "SHOWING_BURST_SCORE", "GAME_OVER", "FIRST_PLAYER_ROULETTE", "SHOWING_ROULETTE_RESULT"];
+                const sound_button_active_states = ["TITLE_SCREEN", "MODE_SELECTION", "DIFFICULTY_SELECTION", "ABOUT_PAGE_1", "ABOUT_PAGE_2", "ABOUT_PAGE_3", "ABOUT_PAGE_4", "PLAYER_TURN", "CPU_THINKING", "PLATES_MOVING", "CANDLE_ANIMATION", "GAME_OVER", "FIRST_PLAYER_ROULETTE", "SHOWING_ROULETTE_RESULT"];
                 if (sound_button_active_states.includes(this.game_state)) {
                     if (this.sound_buttons.bgm.check_hover(mouse_pos)) { this.bgm_on = !this.bgm_on; this.sound_buttons.bgm.text = this.bgm_on ? "BGM on" : "BGM off"; if (this.bgm_on) { this.assets.bgm.play(); } else { this.assets.bgm.pause(); } return; }
                     if (this.sound_buttons.se.check_hover(mouse_pos)) { this.se_on = !this.se_on; this.sound_buttons.se.text = this.se_on ? "SE on" : "SE off"; return; }
@@ -228,25 +224,7 @@
                     "SHOWING_ROULETTE_RESULT": () => { this.roulette_timer--; if (this.roulette_timer <= 0) { this._setup_board(); if (this.current_player === 2 && this.game_mode === 'vs_cpu') { this.game_state = "CPU_THINKING"; this.cpu_thinking_timer = 1 * this.FPS; } else { this.start_turn_effects(); this.game_state = "PLAYER_TURN"; } } },
                     "PLATES_MOVING": () => { for (let i = 0; i < 8; i++) { this.plates.forEach(p => p.update()); this.resolve_collisions(); } if (!this.plates.some(p => p.is_moving())) { if (!this.evaluate_turn_end()) { this.switch_player(); } } },
                     "CANDLE_ANIMATION": () => { this.anim_progress += this.anim_speed; this.score_popup_alpha = Math.max(0, 255 * (1.0 - this.anim_progress)); if (this.anim_progress >= 1.0) { this.check_game_over(); if (this.game_state !== "GAME_OVER") { this._setup_board(); this.switch_player(); } } else { this.candle_pos = this.anim_start_pos.lerp(this.anim_target_pos, this.anim_progress); this.candle_alpha = 255 * (1 - this.anim_progress); } },
-                    "CPU_THINKING": () => { this.cpu_thinking_timer--; if (this.cpu_thinking_timer <= 0) { this.perform_ai_move(); this.game_state = "PLATES_MOVING"; } },
-                    // --- ▼▼▼ 変更点: バースト演出用の状態を追加 ---
-                    "SHOWING_BURST_SCORE": () => {
-                        this.score_popup_timer--;
-                        if (this.score_popup_timer <= 0) {
-                            this.check_game_over();
-                            if (this.game_state !== "GAME_OVER") {
-                                this._setup_board();
-                                // ターンを交代せず、同じプレイヤーのターンを再開
-                                this.start_turn_effects();
-                                if (this.current_player === 2 && this.game_mode === 'vs_cpu') {
-                                    this.game_state = "CPU_THINKING";
-                                    this.cpu_thinking_timer = 1 * this.FPS;
-                                } else {
-                                    this.game_state = "PLAYER_TURN";
-                                }
-                            }
-                        }
-                    }
+                    "CPU_THINKING": () => { this.cpu_thinking_timer--; if (this.cpu_thinking_timer <= 0) { this.perform_ai_move(); this.game_state = "PLATES_MOVING"; } }
                 };
                 if (stateActions[this.game_state]) stateActions[this.game_state]();
             }
@@ -439,70 +417,7 @@
             find_collision_point(p1, p2, axis) { const verts1 = [...p1.corners].sort((a, b) => a.dot(axis) - b.dot(axis)); const verts2 = [...p2.corners].sort((a, b) => a.dot(axis) - b.dot(axis)); return verts1[verts1.length-1].add(verts2[0]).divide(2); }
             get_axes(plate) { const axes = []; for (let i = 0; i < plate.corners.length; i++) { const p1 = plate.corners[i]; const p2 = plate.corners[(i + 1) % plate.corners.length]; const edge = p2.sub(p1); if (edge.lengthSquared() > 0) { axes.push(edge.rotate(90).normalize()); } } return axes; }
             project(plate, axis) { const dots = plate.corners.map(c => c.dot(axis)); return [Math.min(...dots), Math.max(...dots)]; }
-            evaluate_turn_end() {
-                const board_x = (this.SCREEN_WIDTH - this.BOARD_WIDTH) / 2;
-                const board_y = (this.SCREEN_HEIGHT - this.BOARD_HEIGHT) / 2;
-                const board_rect = { x: board_x, y: board_y, width: this.BOARD_WIDTH, height: this.BOARD_HEIGHT, left: board_x, right: board_x + this.BOARD_WIDTH };                
-                const plates_on_board = this.plates.filter(plate => plate.corners.some(c => c.x >= board_rect.x && c.x <= board_rect.right && c.y >= board_rect.y && c.y <= board_rect.y + board_rect.height));
-                if (plates_on_board.length <= 2 && this.plates.length > 2) { // 3枚以上から2枚以下になった場合
-                    this.scores[this.current_player] += 3;
-                    this.play_sound('victory'); // バースト用に派手な音                    
-                    const team_name = this.current_player === 1 ? "Blue" : "Red";
-                    this.score_popup_color = this.current_player === 1 ? this.PLAYER_1_COLOR : this.PLAYER_2_COLOR;
-                    this.score_popup_text = `${team_name} team BURST!! +3 candles`;
-                    this.score_popup_alpha = 255;
-                    this.game_state = "SHOWING_BURST_SCORE";
-                    this.score_popup_timer = 2 * this.FPS; // 2秒表示
-                    this.plates = plates_on_board;
-                    return true;
-                }
-
-                const out_of_bounds_plates = this.plates.filter(p => !plates_on_board.includes(p));
-                if (out_of_bounds_plates.length === 0) return false;
-
-                const opponent = 3 - this.current_player;
-                let points = 0, winning_player = 0;
-                const opponentPlateKnockedOut = out_of_bounds_plates.some(p => p.owner === opponent);
-
-                if (opponentPlateKnockedOut) {
-                    this.scores[opponent] += 1;
-                    points = 1; winning_player = opponent;
-                } else {
-                    const goal_p1 = this.current_player === 1 && out_of_bounds_plates.some(p => { if (p.owner !== 1) return false; if (!p.corners.every(c => c.x > board_rect.right)) return false; const p_min_y = Math.min(...p.corners.map(c => c.y)); const p_max_y = Math.max(...p.corners.map(c => c.y)); return p_max_y > board_rect.y && p_min_y < board_rect.y + board_rect.height; });
-                    const goal_p2 = this.current_player === 2 && out_of_bounds_plates.some(p => { if (p.owner !== 2) return false; if (!p.corners.every(c => c.x < board_rect.left)) return false; const p_min_y = Math.min(...p.corners.map(c => c.y)); const p_max_y = Math.max(...p.corners.map(c => c.y)); return p_max_y > board_rect.y && p_min_y < board_rect.y + board_rect.height; });
-                    if (goal_p1 || goal_p2) {
-                        this.scores[this.current_player] += 2;
-                        points = 2; winning_player = this.current_player;
-                    } else {
-                        this.scores[opponent] += 1;
-                        points = 1; winning_player = opponent;
-                    }
-                }
-                
-                this.play_sound('point');
-                if (points === 2) { setTimeout(() => this.play_sound('point'), 150); }
-                this.score_popup_color = (winning_player === 1) ? this.PLAYER_1_COLOR : this.PLAYER_2_COLOR;
-                const team_name = (winning_player === 1) ? "Blue" : "Red";
-                this.score_popup_text = `${team_name} team got ${points} candle${points > 1 ? 's' : ''}`;
-                this.anim_candle_img = this.assets.candle_images[points];
-                
-                if (this.anim_candle_img) {
-                    this.game_state = "CANDLE_ANIMATION";
-                    this.anim_start_pos = new Vector2(this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2);
-                    const target_x = (winning_player === 1) ? 240 : this.SCREEN_WIDTH - 260;
-                    this.anim_target_pos = new Vector2(target_x, 60);
-                    this.candle_pos = this.anim_start_pos.copy();
-                    this.candle_alpha = 255;
-                    this.anim_progress = 0.0;
-                    this.anim_speed = 1.0 / (this.FPS * 1.0);
-                    this.score_popup_alpha = 255;
-                } else {
-                    this.check_game_over();
-                    if (this.game_state !== "GAME_OVER") { this.switch_player(); }
-                }
-                this.plates = plates_to_keep;
-                return true;
-            }
+            evaluate_turn_end() { const board_x = (this.SCREEN_WIDTH - this.BOARD_WIDTH) / 2; const board_y = (this.SCREEN_HEIGHT - this.BOARD_HEIGHT) / 2; const board_rect = { x: board_x, y: board_y, width: this.BOARD_WIDTH, height: this.BOARD_HEIGHT, left: board_x, right: board_x + this.BOARD_WIDTH }; const out_of_bounds_plates = []; const plates_to_keep = []; for(const plate of this.plates) { const is_out = !plate.corners.some(c => c.x >= board_rect.x && c.x <= board_rect.x + board_rect.width && c.y >= board_rect.y && c.y <= board_rect.y + board_rect.height); if (is_out) { out_of_bounds_plates.push(plate); } else { plates_to_keep.push(plate); } } if (out_of_bounds_plates.length === 0) return false; const opponent = 3 - this.current_player; let points = 0, winning_player = 0; const opponentPlateKnockedOut = out_of_bounds_plates.some(p => p.owner === opponent); if (opponentPlateKnockedOut) { this.scores[opponent] += 1; points = 1; winning_player = opponent; } else { const goal_p1 = this.current_player === 1 && out_of_bounds_plates.some(p => { if (p.owner !== 1) return false; if (!p.corners.every(c => c.x > board_rect.right)) return false; const p_min_y = Math.min(...p.corners.map(c => c.y)); const p_max_y = Math.max(...p.corners.map(c => c.y)); return p_max_y > board_rect.y && p_min_y < board_rect.y + board_rect.height; }); const goal_p2 = this.current_player === 2 && out_of_bounds_plates.some(p => { if (p.owner !== 2) return false; if (!p.corners.every(c => c.x < board_rect.left)) return false; const p_min_y = Math.min(...p.corners.map(c => c.y)); const p_max_y = Math.max(...p.corners.map(c => c.y)); return p_max_y > board_rect.y && p_min_y < board_rect.y + board_rect.height; }); if (goal_p1 || goal_p2) { this.scores[this.current_player] += 2; points = 2; winning_player = this.current_player; } else { this.scores[opponent] += 1; points = 1; winning_player = opponent; } } this.play_sound('point'); if (points === 2) { setTimeout(() => this.play_sound('point'), 150); } this.score_popup_color = (winning_player === 1) ? this.PLAYER_1_COLOR : this.PLAYER_2_COLOR; const team_name = (winning_player === 1) ? "Blue" : "Red"; this.score_popup_text = `${team_name} team got ${points} candle${points > 1 ? 's' : ''}`; this.anim_candle_img = this.assets.candle_images[points]; if (this.anim_candle_img) { this.game_state = "CANDLE_ANIMATION"; this.anim_start_pos = new Vector2(this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2); const target_x = (winning_player === 1) ? 240 : this.SCREEN_WIDTH - 260; this.anim_target_pos = new Vector2(target_x, 60); this.candle_pos = this.anim_start_pos.copy(); this.candle_alpha = 255; this.anim_progress = 0.0; this.anim_speed = 1.0 / (this.FPS * 1.0); this.score_popup_alpha = 255; } else { this.check_game_over(); if (this.game_state !== "GAME_OVER") { this.switch_player(); } } this.plates = plates_to_keep; return true; }
             switch_player() { this.current_player = 3 - this.current_player; if (this.current_player === 2 && this.game_mode === 'vs_cpu') { this.game_state = "CPU_THINKING"; this.cpu_thinking_timer = 1 * this.FPS; } else { this.play_sound('notice'); this.start_turn_effects(); this.game_state = "PLAYER_TURN"; } }
             start_turn_effects() { this.plates.forEach(plate => { if (plate.owner === this.current_player) { plate.fading = 255; } }); }
             check_game_over() { if (Object.values(this.scores).some(s => s >= this.WINNING_SCORE)) { this.game_state = "GAME_OVER"; if (!this.victory_sound_played) { this.play_sound('victory'); this.victory_sound_played = true; } } }
@@ -557,5 +472,3 @@
     </script>
 </body>
 </html>
-
-
