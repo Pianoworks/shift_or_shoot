@@ -135,7 +135,6 @@
                     BGM: this.asset_path + 'BGM.mp3', click: this.asset_path + 'click.mp3', shoot: this.asset_path + 'shoot.mp3', collision: this.asset_path + 'collision.mp3', point: this.asset_path + 'point.mp3',
                     victory: this.asset_path + 'victory.mp3', notice: this.asset_path + 'notice.mp3', roulette: this.asset_path + 'roulette.mp3', roulettedet: this.asset_path + 'roulettedet.mp3'
                 };
-                
                 const assetPromises = Object.entries(assetPaths).map(([key, path]) => {
                     const loadPromise = new Promise((resolve, reject) => {
                         if (path.endsWith('.png') || path.endsWith('.jpg')) {
@@ -222,19 +221,7 @@
                     "FADE_OUT_FROM_ABOUT_4": () => { this.fade_alpha = Math.min(255, this.fade_alpha + this.TITLE_FADE_SPEED); if (this.fade_alpha === 255) { this.game_state = "FADE_IN_TO_TITLE"; } },
                     "FADE_IN_TO_ROULETTE": () => { this.fade_alpha = Math.max(0, this.fade_alpha - this.TITLE_FADE_SPEED); if (this.fade_alpha === 0) { this.game_state = "FIRST_PLAYER_ROULETTE"; this.roulette_timer = 120; } },
                     "FIRST_PLAYER_ROULETTE": () => { this.roulette_timer--; this.roulette_color = (Math.floor(this.roulette_timer / 5) % 2 === 0) ? this.PLAYER_1_COLOR : this.PLAYER_2_COLOR; this.roulette_sound_timer--; if (this.roulette_sound_timer <= 0) { this.play_sound('roulette'); this.roulette_sound_timer = 0.2 * this.FPS; } if (this.roulette_timer <= 0) { this.play_sound('roulettedet'); this.current_player = Math.random() < 0.5 ? 1 : 2; this.game_state = "SHOWING_ROULETTE_RESULT"; this.roulette_timer = 2 * this.FPS; } },
-                    "SHOWING_ROULETTE_RESULT": () => { 
-                        this.roulette_timer--; 
-                        if (this.roulette_timer <= 0) {
-                            this._setup_board(); 
-                            if (this.current_player === 2 && this.game_mode === 'vs_cpu') {
-                                this.game_state = "CPU_THINKING";
-                                this.cpu_thinking_timer = 1 * this.FPS;
-                            } else {
-                                this.start_turn_effects(); 
-                                this.game_state = "PLAYER_TURN";
-                            }
-                        } 
-                    },
+                    "SHOWING_ROULETTE_RESULT": () => { this.roulette_timer--; if (this.roulette_timer <= 0) { this._setup_board(); if (this.current_player === 2 && this.game_mode === 'vs_cpu') { this.game_state = "CPU_THINKING"; this.cpu_thinking_timer = 1 * this.FPS; } else { this.start_turn_effects(); this.game_state = "PLAYER_TURN"; } } },
                     "PLATES_MOVING": () => { for (let i = 0; i < 8; i++) { this.plates.forEach(p => p.update()); this.resolve_collisions(); } if (!this.plates.some(p => p.is_moving())) { if (!this.evaluate_turn_end()) { this.switch_player(); } } },
                     "CANDLE_ANIMATION": () => { this.anim_progress += this.anim_speed; this.score_popup_alpha = Math.max(0, 255 * (1.0 - this.anim_progress)); if (this.anim_progress >= 1.0) { this.check_game_over(); if (this.game_state !== "GAME_OVER") { this._setup_board(); this.switch_player(); } } else { this.candle_pos = this.anim_start_pos.lerp(this.anim_target_pos, this.anim_progress); this.candle_alpha = 255 * (1 - this.anim_progress); } },
                     "CPU_THINKING": () => { this.cpu_thinking_timer--; if (this.cpu_thinking_timer <= 0) { this.perform_ai_move(); this.game_state = "PLATES_MOVING"; } }
@@ -242,6 +229,7 @@
                 if (stateActions[this.game_state]) stateActions[this.game_state]();
             }
 
+            // --- ▼▼▼ 変更点: AIロジック全体を修正 ▼▼▼
             perform_ai_move() {
                 if (this.cpu_difficulty === 'normal') {
                     this.perform_normal_ai_move();
@@ -251,30 +239,30 @@
             }
 
             perform_easy_ai_move(is_fallback = false) {
-                const miss_chance = this.cpu_difficulty === 'easy' ? 0.2 : 0.0; // Normalのミスは0%
+                const miss_chance = this.cpu_difficulty === 'easy' ? 0.2 : 0.0;
                 const player_plates = this.plates.filter(p => p.owner === 1);
                 const cpu_plates = this.plates.filter(p => p.owner === 2);
                 if (cpu_plates.length === 0) return;
                 
                 const board_x = (this.SCREEN_WIDTH - this.BOARD_WIDTH) / 2;
+                const player_goal_line_x = board_x + this.BOARD_WIDTH;
                 const cpu_goal_line_x = board_x;
                 
                 let threat_plate = null;
                 let min_dist_to_goal = Infinity;
-                player_plates.forEach(p => { const dist = Math.abs(p.pos.x - cpu_goal_line_x); if (dist < min_dist_to_goal) { min_dist_to_goal = dist; threat_plate = p; } });
+                player_plates.forEach(p => { const dist = Math.abs(p.pos.x - player_goal_line_x); if (dist < min_dist_to_goal) { min_dist_to_goal = dist; threat_plate = p; } });
                 
                 let move = { plate: null, target: null };
                 
-                if (!is_fallback && threat_plate && threat_plate.pos.x < this.SCREEN_WIDTH / 2) {
+                if (!is_fallback && threat_plate && threat_plate.pos.x > this.SCREEN_WIDTH / 2) {
                     let closest_defender = null;
                     let min_dist_to_threat = Infinity;
                     cpu_plates.forEach(p => { const dist = p.pos.sub(threat_plate.pos).length(); if (dist < min_dist_to_threat) { min_dist_to_threat = dist; closest_defender = p; } });
                     move.plate = closest_defender;
-                    move.target = new Vector2(threat_plate.pos.x + 30, threat_plate.pos.y);
+                    move.target = new Vector2(threat_plate.pos.x - 30, threat_plate.pos.y);
                 } else {
                     move.plate = cpu_plates[Math.floor(Math.random() * cpu_plates.length)];
-                    const player_goal_line_x = board_x + this.BOARD_WIDTH;
-                    move.target = new Vector2(player_goal_line_x, Math.random() * this.BOARD_HEIGHT + (this.SCREEN_HEIGHT - this.BOARD_HEIGHT) / 2);
+                    move.target = new Vector2(cpu_goal_line_x, Math.random() * this.BOARD_HEIGHT + (this.SCREEN_HEIGHT - this.BOARD_HEIGHT) / 2);
                 }
 
                 if (!move.plate) return;
@@ -294,71 +282,104 @@
             
             perform_normal_ai_move() {
                 const cpu_plates = this.plates.filter(p => p.owner === 2);
+                const player_plates = this.plates.filter(p => p.owner === 1);
                 if (cpu_plates.length === 0) return;
 
                 const board_x = (this.SCREEN_WIDTH - this.BOARD_WIDTH) / 2;
+                const cpu_goal_line_x = board_x;
                 const player_goal_line_x = board_x + this.BOARD_WIDTH;
-                const player_goal_center_y = this.SCREEN_HEIGHT / 2;
-                
-                let best_shot = null;
-                let best_shot_score = -Infinity;
 
+                // Priority 1: 完璧なゴールショットを探す
                 for (const plate of cpu_plates) {
-                    const target = new Vector2(player_goal_line_x, player_goal_center_y);
+                    const target = new Vector2(cpu_goal_line_x, Math.random() * this.BOARD_HEIGHT + (this.SCREEN_HEIGHT - this.BOARD_HEIGHT) / 2);
                     const force_vector = target.sub(plate.pos).normalize().multiply(200);
-                    
-                    const outcome = this.simulate_shot(plate, force_vector);
-                    
+                    const outcome = this.simulate_shot(plate, force_vector, 2);
                     if (outcome.scored && !outcome.penalty) {
-                        best_shot = { plate, force_vector };
-                        break;
+                        this.play_sound('shoot');
+                        plate.apply_force_and_torque(force_vector, new Vector2(0,0));
+                        return;
                     }
+                }
+
+                // Priority 2: プレイヤーのゴールを阻止する
+                let threat_plate = null;
+                let min_dist_to_goal = Infinity;
+                player_plates.forEach(p => { const dist = Math.abs(p.pos.x - player_goal_line_x); if (dist < min_dist_to_goal) { min_dist_to_goal = dist; threat_plate = p; } });
+
+                if (threat_plate) {
+                    const threat_target = new Vector2(player_goal_line_x, threat_plate.pos.y);
+                    const threat_force = threat_target.sub(threat_plate.pos).normalize().multiply(200);
+                    const threat_outcome = this.simulate_shot(threat_plate, threat_force, 1);
                     
-                    if (!outcome.penalty) {
-                        let score = -Math.min(...outcome.final_plates.filter(p => p.owner === 2).map(p => Math.abs(p.pos.x - player_goal_line_x)));
-                        if (score > best_shot_score) {
-                            best_shot_score = score;
-                            best_shot = { plate, force_vector };
+                    if (threat_outcome.scored && !threat_outcome.penalty) {
+                        let closest_defender = null;
+                        let min_dist_to_threat = Infinity;
+                        cpu_plates.forEach(p => { const dist = p.pos.sub(threat_plate.pos).length(); if (dist < min_dist_to_threat) { min_dist_to_threat = dist; closest_defender = p; } });
+                        if(closest_defender) {
+                            const block_target = new Vector2((threat_plate.pos.x + player_goal_line_x) / 2, threat_plate.pos.y);
+                            const block_force = block_target.sub(closest_defender.pos).normalize().multiply(100);
+                            const block_outcome = this.simulate_shot(closest_defender, block_force, 2);
+                            if (!block_outcome.penalty) {
+                                this.play_sound('shoot');
+                                closest_defender.apply_force_and_torque(block_force, new Vector2(0,0));
+                                return;
+                            }
                         }
                     }
                 }
 
-                if (best_shot) {
-                    this.play_sound('shoot');
-                    best_shot.plate.apply_force_and_torque(best_shot.force_vector, new Vector2(0,0));
-                } else {
-                    this.perform_easy_ai_move(true);
+                // Priority 3: 安全な一手を打つ
+                for (let i = 0; i < 5; i++) { // 5回試行
+                    const plate = cpu_plates[Math.floor(Math.random() * cpu_plates.length)];
+                    const target = new Vector2(this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2);
+                    const force_vector = target.sub(plate.pos).normalize().multiply(50 + Math.random() * 30);
+                    const outcome = this.simulate_shot(plate, force_vector, 2);
+                    if (!outcome.penalty) {
+                        this.play_sound('shoot');
+                        plate.apply_force_and_torque(force_vector, new Vector2(0,0));
+                        return;
+                    }
+                }
+
+                // Fallback: どうしても安全な手がない場合
+                this.perform_easy_ai_move(true);
+            }
+            
+            sim_resolve_collisions(sim_plates) {
+                for (let i = 0; i < sim_plates.length; i++) {
+                    for (let j = i + 1; j < sim_plates.length; j++) {
+                        const p1 = sim_plates[i]; const p2 = sim_plates[j];
+                        const [is_colliding, mtv, collision_point] = this.check_collision_sat(p1, p2);
+                        if (is_colliding) {
+                            if (mtv.lengthSquared() === 0) continue;
+                            p1.pos = p1.pos.sub(mtv.divide(2)); p2.pos = p2.pos.add(mtv.divide(2)); p1.update_corners(); p2.update_corners();
+                            const n = mtv.normalize(); const rv = p2.vel.sub(p1.vel); const vel_along_normal = rv.dot(n);
+                            if (vel_along_normal > 0) continue;
+                            const impulse_scalar = -(1 + this.COLLISION_ELASTICITY) * vel_along_normal / 2; const impulse_vec = n.multiply(impulse_scalar);
+                            const r1 = collision_point.sub(p1.pos); const r2 = collision_point.sub(p2.pos);
+                            p1.vel = p1.vel.sub(impulse_vec); p2.vel = p2.vel.add(impulse_vec);
+                            p1.angular_velocity -= r1.cross(impulse_vec) / this.PLATE_INERTIA; p2.angular_velocity += r2.cross(impulse_vec) / this.PLATE_INERTIA;
+                        }
+                    }
                 }
             }
 
-            simulate_shot(plate_to_shoot, force_vector) {
+            simulate_shot(plate_to_shoot, force_vector, shooting_player_id) {
                 const sim_plates = this.plates.map(p => {
                     const new_plate = new Plate(p.owner, p.id, p.pos.x, p.pos.y, p.original_image, p.angle, this);
-                    new_plate.vel = p.vel.copy();
-                    new_plate.angular_velocity = p.angular_velocity;
+                    new_plate.vel = p.vel.copy(); new_plate.angular_velocity = p.angular_velocity;
                     return new_plate;
                 });
 
                 const sim_plate_to_shoot = sim_plates.find(p => p.owner === plate_to_shoot.owner && p.id === plate_to_shoot.id);
-                if (!sim_plate_to_shoot) return { scored: false, penalty: false, final_plates: sim_plates };
+                if (!sim_plate_to_shoot) return { scored: false, penalty: false };
 
                 sim_plate_to_shoot.apply_force_and_torque(force_vector, new Vector2(0,0));
 
                 for (let i = 0; i < 240; i++) {
                     if (!sim_plates.some(p => p.is_moving())) break;
                     sim_plates.forEach(p => p.update());
-                    
-                    for (let k = 0; k < sim_plates.length; k++) {
-                        for (let l = k + 1; l < sim_plates.length; l++) {
-                            const p1 = sim_plates[k]; const p2 = sim_plates[l];
-                            const [is_colliding, mtv] = this.check_collision_sat(p1, p2);
-                            if (is_colliding) {
-                                if (mtv.lengthSquared() > 0) {
-                                    p1.pos = p1.pos.sub(mtv.divide(2)); p2.pos = p2.pos.add(mtv.divide(2)); p1.update_corners(); p2.update_corners();
-                                }
-                            }
-                        }
-                    }
+                    this.sim_resolve_collisions(sim_plates);
                 }
                 
                 const board_x = (this.SCREEN_WIDTH - this.BOARD_WIDTH) / 2;
@@ -371,23 +392,26 @@
                 sim_plates.forEach(p => {
                     const is_out = !p.corners.some(c => c.x >= board_rect.x && c.x <= board_rect.right && c.y >= board_rect.y && c.y <= board_rect.y + board_rect.height);
                     if (is_out) {
-                        if (p.owner === 1) {
+                        if (p.owner !== shooting_player_id) {
                             penalty = true;
-                        } else if (p.owner === 2) {
-                            if (p.corners.every(c => c.x > board_rect.right)) {
-                                const p_min_y = Math.min(...p.corners.map(c => c.y));
-                                const p_max_y = Math.max(...p.corners.map(c => c.y));
-                                if (p_max_y > board_rect.y && p_min_y < board_rect.y + board_rect.height) {
-                                    scored = true;
-                                }
+                        } else {
+                            const p_min_y = Math.min(...p.corners.map(c => c.y));
+                            const p_max_y = Math.max(...p.corners.map(c => c.y));
+                            const vertically_aligned = p_max_y > board_rect.y && p_min_y < board_rect.y + board_rect.height;
+
+                            if (shooting_player_id === 1 && p.corners.every(c => c.x > board_rect.right) && vertically_aligned) {
+                                scored = true;
+                            } else if (shooting_player_id === 2 && p.corners.every(c => c.x < board_rect.left) && vertically_aligned) {
+                                scored = true;
                             }
                         }
                     }
                 });
                 
-                return { scored, penalty, final_plates: sim_plates };
+                return { scored, penalty };
             }
-            
+            // --- ▲▲▲ 変更ここまで ---
+
             resolve_collisions() { for (let i = 0; i < this.plates.length; i++) { for (let j = i + 1; j < this.plates.length; j++) { const p1 = this.plates[i]; const p2 = this.plates[j]; const [is_colliding, mtv, collision_point] = this.check_collision_sat(p1, p2); if (is_colliding) { const now = performance.now(); if (now - this.last_collision_sound_time > 50) { this.play_sound('collision'); this.last_collision_sound_time = now; } if (mtv.lengthSquared() === 0) continue; p1.pos = p1.pos.sub(mtv.divide(2)); p2.pos = p2.pos.add(mtv.divide(2)); p1.update_corners(); p2.update_corners(); const n = mtv.normalize(); const rv = p2.vel.sub(p1.vel); const vel_along_normal = rv.dot(n); if (vel_along_normal > 0) continue; const impulse_scalar = -(1 + this.COLLISION_ELASTICITY) * vel_along_normal / 2; const impulse_vec = n.multiply(impulse_scalar); const r1 = collision_point.sub(p1.pos); const r2 = collision_point.sub(p2.pos); p1.vel = p1.vel.sub(impulse_vec); p2.vel = p2.vel.add(impulse_vec); p1.angular_velocity -= r1.cross(impulse_vec) / this.PLATE_INERTIA; p2.angular_velocity += r2.cross(impulse_vec) / this.PLATE_INERTIA; } } } }
             check_collision_sat(p1, p2) { const axes = [...this.get_axes(p1), ...this.get_axes(p2)]; let min_overlap = Infinity; let mtv_axis = null; for (const axis of axes) { const [proj1_min, proj1_max] = this.project(p1, axis); const [proj2_min, proj2_max] = this.project(p2, axis); const overlap = Math.min(proj1_max, proj2_max) - Math.max(proj1_min, proj2_min); if (overlap < 0) return [false, null, null]; if (overlap < min_overlap) { min_overlap = overlap; mtv_axis = axis; } } if (mtv_axis && mtv_axis.lengthSquared() > 0) { let mtv = mtv_axis.normalize().multiply(min_overlap); if (p2.pos.sub(p1.pos).dot(mtv) < 0) mtv = mtv.multiply(-1); const collision_point = this.find_collision_point(p1, p2, mtv.normalize()); return [true, mtv, collision_point]; } return [false, null, null]; }
             find_collision_point(p1, p2, axis) { const verts1 = [...p1.corners].sort((a, b) => a.dot(axis) - b.dot(axis)); const verts2 = [...p2.corners].sort((a, b) => a.dot(axis) - b.dot(axis)); return verts1[verts1.length-1].add(verts2[0]).divide(2); }
