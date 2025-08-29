@@ -204,6 +204,18 @@
             updatePosFromEvent(e) { const rect = this.canvas.getBoundingClientRect(); const scaleX = this.canvas.width / rect.width; const scaleY = this.canvas.height / rect.height; let clientX, clientY; if (e.touches && e.touches.length > 0) { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; } else if (e.changedTouches && e.changedTouches.length > 0) { clientX = e.changedTouches[0].clientX; clientY = e.changedTouches[0].clientY; } else { clientX = e.clientX; clientY = e.clientY; } this.mousePos.x = (clientX - rect.left) * scaleX; this.mousePos.y = (clientY - rect.top) * scaleY; }
             
             handleMouseDown() {
+                // ▼▼▼ 修正箇所: 音声ファイルのロードを最初に行う ▼▼▼
+                if (!this.is_sounds_loaded) {
+                    this.loadSounds().then(() => {
+                        if (this.audioCtx && this.audioCtx.state === 'suspended') {
+                            this.audioCtx.resume();
+                        }
+                        // BGMはここで自動再生しない。各ボタンのクリックイベントで再生を開始する
+                    }).catch(error => {
+                        console.error("Audio assets loading failed:", error);
+                        // エラー時の処理を追加するならここに
+                    });
+                } 
                 const mouse_pos = this.mousePos.copy();
                 const sound_button_active_states = ["TITLE_SCREEN", "MODE_SELECTION", "DIFFICULTY_SELECTION", "ABOUT_PAGE_1", "ABOUT_PAGE_2", "ABOUT_PAGE_3", "ABOUT_PAGE_4", "PLAYER_TURN", "CPU_THINKING", "PLATES_MOVING", "CANDLE_ANIMATION", "GAME_OVER", "FIRST_PLAYER_ROULETTE", "SHOWING_ROULETTE_RESULT"];
                 if (sound_button_active_states.includes(this.game_state)) {
@@ -214,27 +226,10 @@
                 switch(this.game_state) {
                     case "TITLE_SCREEN":
                         if (this.title_buttons.start.check_hover(mouse_pos)) {
-                            // 音声がまだロードされていなければ、ここでロードを開始
-                            if (!this.is_sounds_loaded) {
-                                this.loadSounds().then(() => {
-                                    if (this.audioCtx && this.audioCtx.state === 'suspended') {
-                                        this.audioCtx.resume();
-                                    }
-                                    if (this.bgm_on && this.assets.bgm && this.assets.bgm.paused) {
-                                        this.assets.bgm.play();
-                                    }
-                                    this.play_sound('click');
-                                 });
-                            } else {
-                        // ロード済みなら、再生ロジックだけ実行
-                                if (this.audioCtx && this.audioCtx.state === 'suspended') {
-                                    this.audioCtx.resume();
-                                }
-                                if (this.bgm_on && this.assets.bgm && this.assets.bgm.paused) {
-                                    this.assets.bgm.play();
-                                }
-                                this.play_sound('click');
+                            if (this.bgm_on && this.assets.bgm && this.assets.bgm.paused) {
+                                this.assets.bgm.play();
                             }
+                            this.play_sound('click');
                             this.game_state = "MODE_SELECTION";
                         } else if (this.title_buttons.how_to.check_hover(mouse_pos)) {
                             this.play_sound('click'); this.game_state = "FADE_IN_ABOUT_2"; this.fade_alpha = 255;
@@ -516,5 +511,6 @@
     </script>
 </body>
 </html>
+
 
 
