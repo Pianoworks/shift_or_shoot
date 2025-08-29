@@ -32,38 +32,32 @@
             lerp(target, alpha) { return this.add(target.sub(this).multiply(alpha)); }
             copy() { return new Vector2(this.x, this.y); }
         }
-
         class SosGame {
             constructor(canvasId) {
                 this.canvas = document.getElementById(canvasId);
                 this.ctx = this.canvas.getContext('2d');
                 this.mousePos = new Vector2();
                 this.isMouseDown = false;
-                
                 try {
                     this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 } catch (e) {
                     console.error("Web Audio API is not supported in this browser");
                     this.audioCtx = null;
                 }
-
                 this.SCREEN_WIDTH = 1120; this.SCREEN_HEIGHT = 600;
                 this.CONTENT_WIDTH = 800; this.CONTENT_HEIGHT = 600;
                 this.CONTENT_X_OFFSET = (this.SCREEN_WIDTH - this.CONTENT_WIDTH) / 2;
-                
                 this.BOARD_WIDTH = 700; this.BOARD_HEIGHT = 350;
                 this.PLATE_SIZE = 80;
                 this.WINNING_SCORE = 5;
                 this.FPS = 60;
                 this.TITLE_FADE_SPEED = 5;
-
                 this.WHITE = 'rgb(255, 255, 255)';
                 this.BLACK = 'rgb(0, 0, 0)';
                 this.PLAYER_1_COLOR_RGB = { r: 20, g: 120, b: 220 };
                 this.PLAYER_2_COLOR_RGB = { r: 220, g: 80, b: 80 };
                 this.PLAYER_1_COLOR = `rgb(${this.PLAYER_1_COLOR_RGB.r}, ${this.PLAYER_1_COLOR_RGB.g}, ${this.PLAYER_1_COLOR_RGB.b})`;
                 this.PLAYER_2_COLOR = `rgb(${this.PLAYER_2_COLOR_RGB.r}, ${this.PLAYER_2_COLOR_RGB.g}, ${this.PLAYER_2_COLOR_RGB.b})`;
-
                 this.FRICTION_X = 0.96; this.FRICTION_Y = 0.96;
                 this.ANGULAR_FRICTION = 0.98;
                 this.POWER_MULTIPLIER = 0.12;
@@ -73,26 +67,23 @@
                 this.TORQUE_MULTIPLIER = 0.0018;
                 this.COLLISION_ELASTICITY = 0.85;
                 this.PLATE_INERTIA = (this.PLATE_SIZE ** 2) / 6;
-
                 this.game_state = "LOADING";
                 this.fade_alpha = 255;
-                this.bgm_on = true; 
+                this.bgm_on = true;
                 this.se_on = true;
                 this.assets = {};
                 this.gameLoop = this.gameLoop.bind(this);
-                this.is_sounds_loaded = false; // ★サウンドロード済みフラグを初期化
-                
+                this.is_sounds_loaded = false;
                 this.asset_path = 'assets/';
                 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (window.innerWidth < 768);
                 if (isMobile) {
                     this.asset_path = 'smallassets/';
                 }
-                
                 this.init_game_session();
                 this.loadImages()
                     .then(() => {
                         this.create_buttons();
-                        this.game_state = "FIRST_CLICK_TO_PLAY"; // ★初期状態を新しいものに変更
+                        this.game_state = "FIRST_CLICK_TO_PLAY";
                         this.setupEventListeners();
                         requestAnimationFrame(this.gameLoop);
                     })
@@ -102,8 +93,7 @@
                         this.ctx.fillText("Error: Failed to load assets.", this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 - 30);
                         this.ctx.fillText("Please check the browser console (F12) for details.", this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 + 10);
                     });
-        }
-
+            }
             init_game_session() {
                 this.roulette_timer = 0;
                 this.roulette_color = this.PLAYER_1_COLOR;
@@ -113,7 +103,6 @@
                 this.cpu_thinking_timer = 0;
                 this.reset_game_vars();
             }
-
             reset_game_vars() {
                 this.plates = [];
                 this.scores = { 1: 0, 2: 0 };
@@ -125,57 +114,51 @@
                 this.victory_sound_played = false;
                 this.last_collision_sound_time = 0;
             }
-
-        async loadImages() {
-        const assetPaths = {
-            title_image: this.asset_path + 'title.png', about1: this.asset_path + 'about1.png', about2: this.asset_path + 'about2.png', about3: this.asset_path + 'about3.png', about4: this.asset_path + 'about4.png',
-            candle0: this.asset_path + 'candle0.png', candle1: this.asset_path + 'candle1.png', candle2: this.asset_path + 'candle2.png',
-            wood_texture: this.asset_path + 'wood_texture.jpg', marble_texture: this.asset_path + 'marble_texture.jpg',
-            plate1: this.asset_path + 'plate1.jpg', plate2: this.asset_path + 'plate2.jpg', plate3: this.asset_path + 'plate3.jpg', plate4: this.asset_path + 'plate4.jpg', plate5: this.asset_path + 'plate5.jpg', plate6: this.asset_path + 'plate6.jpg'
-        };
-        const assetPromises = Object.entries(assetPaths).map(([key, path]) => {
-            const loadPromise = new Promise((resolve, reject) => {
-                const img = new Image(); img.src = path; img.onload = () => { this.assets[key] = img; resolve(); }; img.onerror = () => reject(`Image failed to load: ${path}`);
-            });
-            const timeoutPromise = new Promise((_, reject) => { setTimeout(() => reject(`Asset timed out: ${path}`), 15000); });
-            return Promise.race([loadPromise, timeoutPromise]);
-        });
-        await Promise.all(assetPromises);
-        this.assets.about_images = [this.assets.about1, this.assets.about2, this.assets.about3, this.assets.about4];
-        this.assets.candle_images = { 0: this.assets.candle0, 1: this.assets.candle1, 2: this.assets.candle2 };
-        this.assets.plate_textures = [this.assets.plate1, this.assets.plate2, this.assets.plate3, this.assets.plate4, this.assets.plate5, this.assets.plate6];
-    }
-    
-        async loadSounds() {
-            if (this.is_sounds_loaded) { 
-                return; // 既にロード済みなら何もしない
-            } 
-            const soundPaths = {
-                bgm: this.asset_path + 'bgm.mp3', click: this.asset_path + 'click.mp3', shoot: this.asset_path + 'shoot.mp3', collision: this.asset_path + 'collision.mp3', point: this.asset_path + 'point.mp3',
-                victory: this.asset_path + 'victory.mp3', notice: this.asset_path + 'notice.mp3', roulette: this.asset_path + 'roulette.mp3', roulettedet: this.asset_path + 'roulettedet.mp3'
-            };
-            const soundPromises = Object.entries(soundPaths).map(([key, path]) => {
-                const loadPromise = new Promise((resolve, reject) => {
-                    const audio = new Audio(path); audio.oncanplaythrough = () => { this.assets[key] = audio; resolve(); }; audio.onerror = () => reject(`Audio failed to load: ${path}`);
+            async loadImages() {
+                const assetPaths = {
+                    title_image: this.asset_path + 'title.png', about1: this.asset_path + 'about1.png', about2: this.asset_path + 'about2.png', about3: this.asset_path + 'about3.png', about4: this.asset_path + 'about4.png',
+                    candle0: this.asset_path + 'candle0.png', candle1: this.asset_path + 'candle1.png', candle2: this.asset_path + 'candle2.png',
+                    wood_texture: this.asset_path + 'wood_texture.jpg', marble_texture: this.asset_path + 'marble_texture.jpg',
+                    plate1: this.asset_path + 'plate1.jpg', plate2: this.asset_path + 'plate2.jpg', plate3: this.asset_path + 'plate3.jpg', plate4: this.asset_path + 'plate4.jpg', plate5: this.asset_path + 'plate5.jpg', plate6: this.asset_path + 'plate6.jpg'
+                };
+                const assetPromises = Object.entries(assetPaths).map(([key, path]) => {
+                    const loadPromise = new Promise((resolve, reject) => {
+                        const img = new Image(); img.src = path; img.onload = () => { this.assets[key] = img; resolve(); }; img.onerror = () => reject(`Image failed to load: ${path}`);
+                    });
+                    const timeoutPromise = new Promise((_, reject) => { setTimeout(() => reject(`Asset timed out: ${path}`), 15000); });
+                    return Promise.race([loadPromise, timeoutPromise]);
                 });
-                const timeoutPromise = new Promise((_, reject) => { setTimeout(() => reject(`Asset timed out: ${path}`), 15000); });
-                return Promise.race([loadPromise, timeoutPromise]);
-            });
-            await Promise.all(soundPromises);
-            this.assets.sounds = {
-                click: this.assets.click, shoot: this.assets.shoot, collision: this.assets.collision, point: this.assets.point, victory: this.assets.victory, notice: this.assets.notice,
-                roulette: this.assets.roulette, roulettedet: this.assets.roulettedet
-            };
-            this.assets.bgm.loop = true;
-            this.is_sounds_loaded = true; // ★成功時にフラグをtrueに
-        }
-            
+                await Promise.all(assetPromises);
+                this.assets.about_images = [this.assets.about1, this.assets.about2, this.assets.about3, this.assets.about4];
+                this.assets.candle_images = { 0: this.assets.candle0, 1: this.assets.candle1, 2: this.assets.candle2 };
+                this.assets.plate_textures = [this.assets.plate1, this.assets.plate2, this.assets.plate3, this.assets.plate4, this.assets.plate5, this.assets.plate6];
+            }
+            async loadSounds() {
+                if (this.is_sounds_loaded) {
+                    return; // 既にロード済みなら何もしない
+                }
+                const soundPaths = {
+                    bgm: this.asset_path + 'bgm.mp3', click: this.asset_path + 'click.mp3', shoot: this.asset_path + 'shoot.mp3', collision: this.asset_path + 'collision.mp3', point: this.asset_path + 'point.mp3',
+                    victory: this.asset_path + 'victory.mp3', notice: this.asset_path + 'notice.mp3', roulette: this.asset_path + 'roulette.mp3', roulettedet: this.asset_path + 'roulettedet.mp3'
+                };
+                const soundPromises = Object.entries(soundPaths).map(([key, path]) => {
+                    const loadPromise = new Promise((resolve, reject) => {
+                        const audio = new Audio(path); audio.oncanplaythrough = () => { this.assets[key] = audio; resolve(); }; audio.onerror = () => reject(`Audio failed to load: ${path}`);
+                    });
+                    const timeoutPromise = new Promise((_, reject) => { setTimeout(() => reject(`Asset timed out: ${path}`), 15000); });
+                    return Promise.race([loadPromise, timeoutPromise]);
+                });
+                await Promise.all(soundPromises);
+                this.assets.sounds = {
+                    click: this.assets.click, shoot: this.assets.shoot, collision: this.assets.collision, point: this.assets.point, victory: this.assets.victory, notice: this.assets.notice,
+                    roulette: this.assets.roulette, roulettedet: this.assets.roulettedet
+                };
+                this.assets.bgm.loop = true;
+                this.is_sounds_loaded = true; // ★成功時にフラグをtrueに
+            }
             play_sound(sound_name) { if (this.se_on) { const sound = this.assets.sounds[sound_name]; if (sound) { sound.currentTime = 0; sound.play(); } } }
-            
             create_buttons() {
-                // ▼▼▼ 修正箇所: 新しいボタンを追加 ▼▼▼
                 this.play_button = new Button("Click here to Play", new Vector2(this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 + 100), "48px sans-serif", this.ctx);
-                // ▲▲▲ 修正箇所ここまで ▲▲▲
                 this.title_buttons = {
                     start: new Button("Start Game", new Vector2(this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 + 80), "48px sans-serif", this.ctx),
                     how_to: new Button("How to Play", new Vector2(this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 + 160), "48px sans-serif", this.ctx),
@@ -199,21 +182,17 @@
                     to_title: new Button("Return to Title", new Vector2(this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 + 160), "48px sans-serif", this.ctx)
                 };
             }
-
             _setup_board() { this.plates = []; for (let i = 1; i <= 3; i++) this._place_randomly(1, i, this.assets.plate_textures[i - 1]); for (let i = 1; i <= 3; i++) this._place_randomly(2, i, this.assets.plate_textures[i - 1 + 3]); }
             _place_randomly(player, plate_id, texture) { const board_x = (this.SCREEN_WIDTH - this.BOARD_WIDTH) / 2; const board_y = (this.SCREEN_HEIGHT - this.BOARD_HEIGHT) / 2; const half_board = this.BOARD_WIDTH / 2; const x_range = (player === 1) ? [board_x, board_x + half_board] : [board_x + half_board, board_x + this.BOARD_WIDTH]; while (true) { const pos_x = Math.random() * (x_range[1] - x_range[0] - this.PLATE_SIZE) + x_range[0] + this.PLATE_SIZE / 2; const pos_y = Math.random() * (this.BOARD_HEIGHT - this.PLATE_SIZE) + board_y + this.PLATE_SIZE / 2; const angle = Math.random() * 90; const temp_plate = new Plate(player, plate_id, pos_x, pos_y, texture, angle, this); if (!this.plates.some(p => this.check_collision_sat(p, temp_plate)[0])) { this.plates.push(temp_plate); break; } } }
             setupEventListeners() { this.canvas.addEventListener('mousedown', e => { this.updatePosFromEvent(e); this.isMouseDown = true; this.handleMouseDown(); }); this.canvas.addEventListener('mouseup', e => { this.updatePosFromEvent(e); this.isMouseDown = false; this.handleMouseUp(); }); this.canvas.addEventListener('mousemove', e => { this.updatePosFromEvent(e); }); this.canvas.addEventListener('mouseleave', e => { if (this.isMouseDown) { this.isMouseDown = false; this.handleMouseUp(); } }); this.canvas.addEventListener('touchstart', e => { e.preventDefault(); this.updatePosFromEvent(e); this.isMouseDown = true; this.handleMouseDown(); }, { passive: false }); this.canvas.addEventListener('touchend', e => { e.preventDefault(); this.updatePosFromEvent(e); this.isMouseDown = false; this.handleMouseUp(); }, { passive: false }); this.canvas.addEventListener('touchmove', e => { e.preventDefault(); this.updatePosFromEvent(e); }, { passive: false }); }
             updatePosFromEvent(e) { const rect = this.canvas.getBoundingClientRect(); const scaleX = this.canvas.width / rect.width; const scaleY = this.canvas.height / rect.height; let clientX, clientY; if (e.touches && e.touches.length > 0) { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; } else if (e.changedTouches && e.changedTouches.length > 0) { clientX = e.changedTouches[0].clientX; clientY = e.changedTouches[0].clientY; } else { clientX = e.clientX; clientY = e.clientY; } this.mousePos.x = (clientX - rect.left) * scaleX; this.mousePos.y = (clientY - rect.top) * scaleY; }
-            
             handleMouseDown() {
-                // ▼▼▼ 修正箇所: サウンドロードのロジックを handleMouseDown() の先頭から削除し、FIRST_CLICK_TO_PLAY ステート内に移動 ▼▼▼
                 const mouse_pos = this.mousePos.copy();
                 const sound_button_active_states = ["TITLE_SCREEN", "MODE_SELECTION", "DIFFICULTY_SELECTION", "ABOUT_PAGE_1", "ABOUT_PAGE_2", "ABOUT_PAGE_3", "ABOUT_PAGE_4", "PLAYER_TURN", "CPU_THINKING", "PLATES_MOVING", "CANDLE_ANIMATION", "GAME_OVER", "FIRST_PLAYER_ROULETTE", "SHOWING_ROULETTE_RESULT"];
                 if (sound_button_active_states.includes(this.game_state)) {
                     if (this.sound_buttons.bgm.check_hover(mouse_pos)) { this.bgm_on = !this.bgm_on; this.sound_buttons.bgm.text = this.bgm_on ? "BGM on" : "BGM off"; if (this.bgm_on) { this.assets.bgm.play(); } else { this.assets.bgm.pause(); } return; }
                     if (this.sound_buttons.se.check_hover(mouse_pos)) { this.se_on = !this.se_on; this.sound_buttons.se.text = this.se_on ? "SE on" : "SE off"; return; }
                 }
-        
                 switch(this.game_state) {
                     case "FIRST_CLICK_TO_PLAY":
                         if (this.play_button.check_hover(mouse_pos)) {
@@ -230,11 +209,9 @@
                         break;
                     case "TITLE_SCREEN":
                         if (this.title_buttons.start.check_hover(mouse_pos)) {
-                            // ▼▼▼ 修正箇所: BGM再生ロジックを移動 ▼▼▼
                             if (this.bgm_on && this.assets.bgm && this.assets.bgm.paused) {
                                 this.assets.bgm.play();
                             }
-                            // ▲▲▲ 修正箇所ここまで ▲▲▲
                             this.play_sound('click');
                             this.game_state = "MODE_SELECTION";
                         } else if (this.title_buttons.how_to.check_hover(mouse_pos)) {
@@ -244,15 +221,15 @@
                         }
                         break;
                     case "MODE_SELECTION": if (this.mode_selection_buttons.vs_player.check_hover(mouse_pos)) { this.game_mode = 'vs_player'; this.play_sound('click'); this.game_state = "FADE_OUT_FROM_TITLE"; this.fade_alpha = 0; } else if (this.mode_selection_buttons.vs_cpu.check_hover(mouse_pos)) { this.game_mode = 'vs_cpu'; this.play_sound('click'); this.game_state = "DIFFICULTY_SELECTION"; } break;
-                    case "DIFFICULTY_SELECTION": 
-                        if (this.difficulty_selection_buttons.easy.check_hover(mouse_pos)) { 
-                            this.cpu_difficulty = 'easy'; 
-                            this.play_sound('click'); 
-                            this.game_state = "FADE_OUT_FROM_TITLE"; this.fade_alpha = 0; 
-                        } else if (this.difficulty_selection_buttons.normal.check_hover(mouse_pos)) { 
-                            this.cpu_difficulty = 'normal'; 
-                            this.play_sound('click'); 
-                            this.game_state = "FADE_OUT_FROM_TITLE"; this.fade_alpha = 0; 
+                    case "DIFFICULTY_SELECTION":
+                        if (this.difficulty_selection_buttons.easy.check_hover(mouse_pos)) {
+                            this.cpu_difficulty = 'easy';
+                            this.play_sound('click');
+                            this.game_state = "FADE_OUT_FROM_TITLE"; this.fade_alpha = 0;
+                        } else if (this.difficulty_selection_buttons.normal.check_hover(mouse_pos)) {
+                            this.cpu_difficulty = 'normal';
+                            this.play_sound('click');
+                            this.game_state = "FADE_OUT_FROM_TITLE"; this.fade_alpha = 0;
                         } else if (this.difficulty_selection_buttons.hard.check_hover(mouse_pos)) {
                             this.cpu_difficulty = 'hard';
                             this.play_sound('click');
@@ -267,9 +244,7 @@
                     case "GAME_OVER": if (this.game_over_buttons.to_title.check_hover(mouse_pos)) { this.init_game_session(); this.game_state = "FADE_IN_TO_TITLE"; this.fade_alpha = 255; } else { this.reset_game_vars(); this.game_state = "FIRST_PLAYER_ROULETTE"; this.roulette_timer = 120; } break;
                 }
             }
-            
             handleMouseUp() { if (this.game_state === "PLAYER_TURN" && this.selected_plate) { const force_vector = this.drag_start_pos.sub(this.mousePos); if (force_vector.length() > 5) { this.play_sound('shoot'); this.selected_plate.apply_force_and_torque(force_vector, this.click_offset); this.game_state = "PLATES_MOVING"; } this.selected_plate = null; this.drag_start_pos = null; this.click_offset = new Vector2(0, 0); } }
-
             update_game_state() {
                 const stateActions = {
                     "FADE_IN_TO_TITLE": () => { this.fade_alpha = Math.max(0, this.fade_alpha - this.TITLE_FADE_SPEED); if (this.fade_alpha === 0) { this.game_state = "TITLE_SCREEN"; if (this.bgm_on && this.assets.bgm && this.assets.bgm.paused) { this.assets.bgm.play(); } } },
@@ -287,8 +262,6 @@
                 };
                 if (stateActions[this.game_state]) stateActions[this.game_state]();
             }
-
-            // --- ▼▼▼ 変更点: AIロジック全体を修正 ▼▼▼
             perform_ai_move() {
                 if (this.cpu_difficulty === 'normal') {
                     this.perform_normal_ai_move();
@@ -296,22 +269,18 @@
                     this.perform_easy_ai_move();
                 }
             }
-
             perform_easy_ai_move(is_fallback = false) {
                 const miss_chance = this.cpu_difficulty === 'easy' ? 0.2 : 0.0;
                 const player_plates = this.plates.filter(p => p.owner === 1);
                 const cpu_plates = this.plates.filter(p => p.owner === 2);
                 if (cpu_plates.length === 0) return;
-                
                 const board_x = (this.SCREEN_WIDTH - this.BOARD_WIDTH) / 2;
                 const player_goal_line_x = board_x + this.BOARD_WIDTH;
                 const cpu_goal_line_x = board_x;
                 let threat_plate = null;
                 let min_dist_to_goal = Infinity;
                 player_plates.forEach(p => { const dist = Math.abs(p.pos.x - player_goal_line_x); if (dist < min_dist_to_goal) { min_dist_to_goal = dist; threat_plate = p; } });
-                
                 let move = { plate: null, target: null };
-                
                 if (!is_fallback && threat_plate && threat_plate.pos.x > this.SCREEN_WIDTH / 2) {
                     let closest_defender = null;
                     let min_dist_to_threat = Infinity;
@@ -322,31 +291,24 @@
                     move.plate = cpu_plates[Math.floor(Math.random() * cpu_plates.length)];
                     move.target = new Vector2(cpu_goal_line_x, Math.random() * this.BOARD_HEIGHT + (this.SCREEN_HEIGHT - this.BOARD_HEIGHT) / 2);
                 }
-
                 if (!move.plate) return;
-
                 let direction_vector = move.target.sub(move.plate.pos);
                 if (Math.random() < miss_chance) {
                     const miss_angle = (Math.random() - 0.5) * 60;
                     direction_vector = direction_vector.rotate(miss_angle);
                 }
-
                 const drag_distance = 20 + Math.random() * 180;
                 const force_vector = direction_vector.normalize().multiply(drag_distance);
-                
                 this.play_sound('shoot');
                 move.plate.apply_force_and_torque(force_vector, new Vector2(0,0));
             }
-            
             perform_normal_ai_move() {
                 const cpu_plates = this.plates.filter(p => p.owner === 2);
                 const player_plates = this.plates.filter(p => p.owner === 1);
                 if (cpu_plates.length === 0) return;
-
                 const board_x = (this.SCREEN_WIDTH - this.BOARD_WIDTH) / 2;
                 const cpu_goal_line_x = board_x;
                 const player_goal_line_x = board_x + this.BOARD_WIDTH;
-
                 // Priority 1: 完璧なゴールショットを探す
                 for (const plate of cpu_plates) {
                     const target = new Vector2(cpu_goal_line_x, Math.random() * this.BOARD_HEIGHT + (this.SCREEN_HEIGHT - this.BOARD_HEIGHT) / 2);
@@ -358,17 +320,14 @@
                         return;
                     }
                 }
-
                 // Priority 2: プレイヤーのゴールを阻止する
                 let threat_plate = null;
                 let min_dist_to_goal = Infinity;
                 player_plates.forEach(p => { const dist = Math.abs(p.pos.x - player_goal_line_x); if (dist < min_dist_to_goal) { min_dist_to_goal = dist; threat_plate = p; } });
-
                 if (threat_plate) {
                     const threat_target = new Vector2(player_goal_line_x, threat_plate.pos.y);
                     const threat_force = threat_target.sub(threat_plate.pos).normalize().multiply(200);
                     const threat_outcome = this.simulate_shot(threat_plate, threat_force, 1);
-                    
                     if (threat_outcome.scored && !threat_outcome.penalty) {
                         let closest_defender = null;
                         let min_dist_to_threat = Infinity;
@@ -385,7 +344,6 @@
                         }
                     }
                 }
-
                 // Priority 3: 安全な一手を打つ
                 for (let i = 0; i < 5; i++) { // 5回試行
                     const plate = cpu_plates[Math.floor(Math.random() * cpu_plates.length)];
@@ -398,11 +356,9 @@
                         return;
                     }
                 }
-
                 // Fallback: どうしても安全な手がない場合
                 this.perform_easy_ai_move(true);
             }
-            
             sim_resolve_collisions(sim_plates) {
                 for (let i = 0; i < sim_plates.length; i++) {
                     for (let j = i + 1; j < sim_plates.length; j++) {
@@ -421,32 +377,25 @@
                     }
                 }
             }
-
             simulate_shot(plate_to_shoot, force_vector, shooting_player_id) {
                 const sim_plates = this.plates.map(p => {
                     const new_plate = new Plate(p.owner, p.id, p.pos.x, p.pos.y, p.original_image, p.angle, this);
                     new_plate.vel = p.vel.copy(); new_plate.angular_velocity = p.angular_velocity;
                     return new_plate;
                 });
-
                 const sim_plate_to_shoot = sim_plates.find(p => p.owner === plate_to_shoot.owner && p.id === plate_to_shoot.id);
                 if (!sim_plate_to_shoot) return { scored: false, penalty: false };
-
                 sim_plate_to_shoot.apply_force_and_torque(force_vector, new Vector2(0,0));
-
                 for (let i = 0; i < 240; i++) {
                     if (!sim_plates.some(p => p.is_moving())) break;
                     sim_plates.forEach(p => p.update());
                     this.sim_resolve_collisions(sim_plates);
                 }
-                
                 const board_x = (this.SCREEN_WIDTH - this.BOARD_WIDTH) / 2;
                 const board_y = (this.SCREEN_HEIGHT - this.BOARD_HEIGHT) / 2;
                 const board_rect = { x: board_x, y: board_y, width: this.BOARD_WIDTH, height: this.BOARD_HEIGHT, left: board_x, right: board_x + this.BOARD_WIDTH };
-                
                 let scored = false;
                 let penalty = false;
-
                 sim_plates.forEach(p => {
                     const is_out = !p.corners.some(c => c.x >= board_rect.x && c.x <= board_rect.right && c.y >= board_rect.y && c.y <= board_rect.y + board_rect.height);
                     if (is_out) {
@@ -456,7 +405,6 @@
                             const p_min_y = Math.min(...p.corners.map(c => c.y));
                             const p_max_y = Math.max(...p.corners.map(c => c.y));
                             const vertically_aligned = p_max_y > board_rect.y && p_min_y < board_rect.y + board_rect.height;
-
                             if (shooting_player_id === 1 && p.corners.every(c => c.x > board_rect.right) && vertically_aligned) {
                                 scored = true;
                             } else if (shooting_player_id === 2 && p.corners.every(c => c.x < board_rect.left) && vertically_aligned) {
@@ -465,28 +413,23 @@
                         }
                     }
                 });
-                
                 return { scored, penalty };
             }
-            // --- ▲▲▲ 変更ここまで ---
-
             resolve_collisions() { for (let i = 0; i < this.plates.length; i++) { for (let j = i + 1; j < this.plates.length; j++) { const p1 = this.plates[i]; const p2 = this.plates[j]; const [is_colliding, mtv, collision_point] = this.check_collision_sat(p1, p2); if (is_colliding) { const now = performance.now(); if (now - this.last_collision_sound_time > 50) { this.play_sound('collision'); this.last_collision_sound_time = now; } if (mtv.lengthSquared() === 0) continue; p1.pos = p1.pos.sub(mtv.divide(2)); p2.pos = p2.pos.add(mtv.divide(2)); p1.update_corners(); p2.update_corners(); const n = mtv.normalize(); const rv = p2.vel.sub(p1.vel); const vel_along_normal = rv.dot(n); if (vel_along_normal > 0) continue; const impulse_scalar = -(1 + this.COLLISION_ELASTICITY) * vel_along_normal / 2; const impulse_vec = n.multiply(impulse_scalar); const r1 = collision_point.sub(p1.pos); const r2 = collision_point.sub(p2.pos); p1.vel = p1.vel.sub(impulse_vec); p2.vel = p2.vel.add(impulse_vec); p1.angular_velocity -= r1.cross(impulse_vec) / this.PLATE_INERTIA; p2.angular_velocity += r2.cross(impulse_vec) / this.PLATE_INERTIA; } } } }
             check_collision_sat(p1, p2) { const axes = [...this.get_axes(p1), ...this.get_axes(p2)]; let min_overlap = Infinity; let mtv_axis = null; for (const axis of axes) { const [proj1_min, proj1_max] = this.project(p1, axis); const [proj2_min, proj2_max] = this.project(p2, axis); const overlap = Math.min(proj1_max, proj2_max) - Math.max(proj1_min, proj2_min); if (overlap < 0) return [false, null, null]; if (overlap < min_overlap) { min_overlap = overlap; mtv_axis = axis; } } if (mtv_axis && mtv_axis.lengthSquared() > 0) { let mtv = mtv_axis.normalize().multiply(min_overlap); if (p2.pos.sub(p1.pos).dot(mtv) < 0) mtv = mtv.multiply(-1); const collision_point = this.find_collision_point(p1, p2, mtv.normalize()); return [true, mtv, collision_point]; } return [false, null, null]; }
             find_collision_point(p1, p2, axis) { const verts1 = [...p1.corners].sort((a, b) => a.dot(axis) - b.dot(axis)); const verts2 = [...p2.corners].sort((a, b) => a.dot(axis) - b.dot(axis)); return verts1[verts1.length-1].add(verts2[0]).divide(2); }
             get_axes(plate) { const axes = []; for (let i = 0; i < plate.corners.length; i++) { const p1 = plate.corners[i]; const p2 = plate.corners[(i + 1) % plate.corners.length]; const edge = p2.sub(p1); if (edge.lengthSquared() > 0) { axes.push(edge.rotate(90).normalize()); } } return axes; }
             project(plate, axis) { const dots = plate.corners.map(c => c.dot(axis)); return [Math.min(...dots), Math.max(...dots)]; }
-            evaluate_turn_end() { const board_x = (this.SCREEN_WIDTH - this.BOARD_WIDTH) / 2; const board_y = (this.SCREEN_HEIGHT - this.BOARD_HEIGHT) / 2; const board_rect = { x: board_x, y: board_y, width: this.BOARD_WIDTH, height: this.BOARD_HEIGHT, left: board_x, right: board_x + this.BOARD_WIDTH }; const out_of_bounds_plates = []; const plates_to_keep = []; for(const plate of this.plates) { const is_out = !plate.corners.some(c => c.x >= board_rect.x && c.x <= board_rect.x + board_rect.width && c.y >= board_rect.y && c.y <= board_rect.y + board_rect.height); if (is_out) { out_of_bounds_plates.push(plate); } else { plates_to_keep.push(plate); } } if (out_of_bounds_plates.length === 0) return false; const opponent = 3 - this.current_player; let points = 0, winning_player = 0; const opponentPlateKnockedOut = out_of_bounds_plates.some(p => p.owner === opponent); if (opponentPlateKnockedOut) { this.scores[opponent] += 1; points = 1; winning_player = opponent; } else { const goal_p1 = this.current_player === 1 && out_of_bounds_plates.some(p => { if (p.owner !== 1) return false; if (!p.corners.every(c => c.x > board_rect.right)) return false; const p_min_y = Math.min(...p.corners.map(c => c.y)); const p_max_y = Math.max(...p.corners.map(c => c.y)); return p_max_y > board_rect.y && p_min_y < board_rect.y + board_rect.height; }); const goal_p2 = this.current_player === 2 && out_of_bounds_plates.some(p => { if (p.owner !== 2) return false; if (!p.corners.every(c => c.x < board_rect.left)) return false; const p_min_y = Math.min(...p.corners.map(c => c.y)); const p_max_y = Math.max(...p.corners.map(c => c.y)); return p_max_y > board_rect.y && p_min_y < board_rect.y + board_rect.height; }); if (goal_p1 || goal_p2) { this.scores[this.current_player] += 2; points = 2; winning_player = this.current_player; } else { this.scores[opponent] += 1; points = 1; winning_player = opponent; } } this.play_sound('point'); if (points === 2) { setTimeout(() => this.play_sound('point'), 150); } this.score_popup_color = (winning_player === 1) ? this.PLAYER_1_COLOR : this.PLAYER_2_COLOR; const team_name = (winning_player === 1) ? "Blue" : "Red"; this.score_popup_text = `${team_name} team got ${points} candle${points > 1 ? 's' : ''}`; this.anim_candle_img = this.assets.candle_images[points]; if (this.anim_candle_img) { this.game_state = "CANDLE_ANIMATION"; this.anim_start_pos = new Vector2(this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2); const target_x = (winning_player === 1) ? 240 : this.SCREEN_WIDTH - 260; this.anim_target_pos = new Vector2(target_x, 60); this.candle_pos = this.anim_start_pos.copy(); this.candle_alpha = 255; this.anim_progress = 0.0; this.anim_speed = 1.0 / (this.FPS * 1.0); this.score_popup_alpha = 255; } else { this.check_game_over(); if (this.game_state !== "GAME_OVER") { this.switch_player(); } } this.plates = plates_to_keep; return true; }
-            switch_player() { this.current_player = 3 - this.current_player; if (this.current_player === 2 && this.game_mode === 'vs_cpu') { this.game_state = "CPU_THINKING"; this.cpu_thinking_timer = 1 * this.FPS; } else { this.play_sound('notice'); this.start_turn_effects(); this.game_state = "PLAYER_TURN"; } }
+            evaluate_turn_end() { const board_x = (this.game.SCREEN_WIDTH - this.game.BOARD_WIDTH) / 2; const board_y = (this.game.SCREEN_HEIGHT - this.game.BOARD_HEIGHT) / 2; const board_rect = { x: board_x, y: board_y, width: this.game.BOARD_WIDTH, height: this.game.BOARD_HEIGHT, left: board_x, right: board_x + this.game.BOARD_WIDTH }; const out_of_bounds_plates = []; const plates_to_keep = []; for(const plate of this.plates) { const is_out = !plate.corners.some(c => c.x >= board_rect.x && c.x <= board_rect.x + board_rect.width && c.y >= board_rect.y && c.y <= board_rect.y + board_rect.height); if (is_out) { out_of_bounds_plates.push(plate); } else { plates_to_keep.push(plate); } } if (out_of_bounds_plates.length === 0) return false; const opponent = 3 - this.current_player; let points = 0, winning_player = 0; const opponentPlateKnockedOut = out_of_bounds_plates.some(p => p.owner === opponent); if (opponentPlateKnockedOut) { this.scores[opponent] += 1; points = 1; winning_player = opponent; } else { const goal_p1 = this.current_player === 1 && out_of_bounds_plates.some(p => { if (p.owner !== 1) return false; if (!p.corners.every(c => c.x > board_rect.right)) return false; const p_min_y = Math.min(...p.corners.map(c => c.y)); const p_max_y = Math.max(...p.corners.map(c => c.y)); return p_max_y > board_rect.y && p_min_y < board_rect.y + board_rect.height; }); const goal_p2 = this.current_player === 2 && out_of_bounds_plates.some(p => { if (p.owner !== 2) return false; if (!p.corners.every(c => c.x < board_rect.left)) return false; const p_min_y = Math.min(...p.corners.map(c => c.y)); const p_max_y = Math.max(...p.corners.map(c => c.y)); return p_max_y > board_rect.y && p_min_y < board_rect.y + board_rect.height; }); if (goal_p1 || goal_p2) { this.scores[this.current_player] += 2; points = 2; winning_player = this.current_player; } else { this.scores[opponent] += 1; points = 1; winning_player = opponent; } } this.play_sound('point'); if (points === 2) { setTimeout(() => this.play_sound('point'), 150); } this.score_popup_color = (winning_player === 1) ? this.PLAYER_1_COLOR : this.PLAYER_2_COLOR; const team_name = (winning_player === 1) ? "Blue" : "Red"; this.score_popup_text = `${team_name} team got ${points} candle${points > 1 ? 's' : ''}`; this.anim_candle_img = this.assets.candle_images[points]; if (this.anim_candle_img) { this.game_state = "CANDLE_ANIMATION"; this.anim_start_pos = new Vector2(this.game.SCREEN_WIDTH / 2, this.game.SCREEN_HEIGHT / 2); const target_x = (winning_player === 1) ? 240 : this.game.SCREEN_WIDTH - 260; this.anim_target_pos = new Vector2(target_x, 60); this.candle_pos = this.anim_start_pos.copy(); this.candle_alpha = 255; this.anim_progress = 0.0; this.anim_speed = 1.0 / (this.game.FPS * 1.0); this.score_popup_alpha = 255; } else { this.check_game_over(); if (this.game_state !== "GAME_OVER") { this.switch_player(); } } this.plates = plates_to_keep; return true; }
+            switch_player() { this.current_player = 3 - this.current_player; if (this.current_player === 2 && this.game_mode === 'vs_cpu') { this.game_state = "CPU_THINKING"; this.cpu_thinking_timer = 1 * this.game.FPS; } else { this.play_sound('notice'); this.start_turn_effects(); this.game_state = "PLAYER_TURN"; } }
             start_turn_effects() { this.plates.forEach(plate => { if (plate.owner === this.current_player) { plate.fading = 255; } }); }
             check_game_over() { if (Object.values(this.scores).some(s => s >= this.WINNING_SCORE)) { this.game_state = "GAME_OVER"; if (!this.victory_sound_played) { this.play_sound('victory'); this.victory_sound_played = true; } } }
             draw() { this.ctx.fillStyle = this.BLACK; this.ctx.fillRect(0, 0, this.SCREEN_WIDTH, this.SCREEN_HEIGHT); const gameStateActions = { "LOADING": () => { this.ctx.fillStyle = this.WHITE; this.ctx.font = "32px sans-serif"; this.ctx.textAlign = "center"; this.ctx.fillText("Loading Assets...", this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2); }, "FIRST_CLICK_TO_PLAY": this.draw_first_click_screen.bind(this), "LOADING_SOUNDS": this.draw_loading_sounds.bind(this), "FADE_OUT_FROM_TITLE": this.draw_fade_out_title.bind(this), "FADE_IN_TO_ROULETTE": this.draw_fade_in_to_roulette.bind(this), "FADE_IN_TO_TITLE": this.draw_fade_in_title.bind(this), "FADE_IN_ABOUT_1": this.draw_fade_in_overlay.bind(this, 0), "FADE_IN_ABOUT_2": this.draw_fade_in_overlay.bind(this, 1), "FADE_OUT_FROM_ABOUT_1": this.draw_fade_out_overlay.bind(this, 0), "FADE_OUT_FROM_ABOUT_4": this.draw_fade_out_overlay.bind(this, 3), "TITLE_SCREEN": () => this.draw_title_and_about(), "ABOUT_PAGE_1": () => this.draw_title_and_about(0), "ABOUT_PAGE_2": () => this.draw_title_and_about(1), "ABOUT_PAGE_3": () => this.draw_title_and_about(2), "ABOUT_PAGE_4": () => this.draw_title_and_about(3), "FIRST_PLAYER_ROULETTE": this.draw_roulette.bind(this), "SHOWING_ROULETTE_RESULT": this.draw_roulette.bind(this), }; if (this.game_state === "MODE_SELECTION") { this.draw_title_and_about(); Object.values(this.mode_selection_buttons).forEach(b => b.draw(this.mousePos)); } else if (this.game_state === "DIFFICULTY_SELECTION") { this.draw_title_and_about(); Object.values(this.difficulty_selection_buttons).forEach(b => b.draw(this.mousePos)); } else if (gameStateActions[this.game_state]) { gameStateActions[this.game_state](); } else { this.draw_game_board(); } if (this.game_state === "CANDLE_ANIMATION") { this.draw_score_popup(); } if (this.game_state === "GAME_OVER") { this.draw_game_over(); } const sound_button_visible_states = ["TITLE_SCREEN", "MODE_SELECTION", "DIFFICULTY_SELECTION", "ABOUT_PAGE_1", "ABOUT_PAGE_2", "ABOUT_PAGE_3", "ABOUT_PAGE_4", "PLAYER_TURN", "CPU_THINKING", "PLATES_MOVING", "CANDLE_ANIMATION", "GAME_OVER", "FIRST_PLAYER_ROULETTE", "SHOWING_ROULETTE_RESULT"]; if (sound_button_visible_states.includes(this.game_state)) { this.draw_sound_buttons(); } }
-            // ▼▼▼ 修正箇所: 新しい描画メソッドを追加 ▼▼▼
             draw_first_click_screen() {
                 this.ctx.drawImage(this.assets.title_image, this.CONTENT_X_OFFSET, 0, this.CONTENT_WIDTH, this.CONTENT_HEIGHT);
                 this.play_button.draw(this.mousePos);
                 this.draw_sound_buttons();
             }
-
             draw_loading_sounds() {
                 this.ctx.fillStyle = this.BLACK;
                 this.ctx.fillRect(0, 0, this.SCREEN_WIDTH, this.SCREEN_HEIGHT);
@@ -495,8 +438,6 @@
                 this.ctx.textAlign = "center";
                 this.ctx.fillText("Loading sounds...", this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2);
             }
-            // ▲▲▲ 修正箇所ここまで ▲▲▲
-
             draw_fade_effect(alpha) { this.ctx.save(); this.ctx.globalAlpha = alpha / 255; this.ctx.fillStyle = this.BLACK; this.ctx.fillRect(0, 0, this.SCREEN_WIDTH, this.SCREEN_HEIGHT); this.ctx.restore(); }
             draw_fade_out_title() { this.draw_title_and_about(); this.draw_fade_effect(this.fade_alpha); }
             draw_fade_in_to_roulette() { this.draw_game_board(); this.draw_fade_effect(this.fade_alpha); }
@@ -512,7 +453,6 @@
             draw_game_over() { this.ctx.save(); this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; this.ctx.fillRect(0, 0, this.SCREEN_WIDTH, this.SCREEN_HEIGHT); const winner = this.scores[1] >= this.WINNING_SCORE ? 1 : 2; const team_name = winner === 1 ? "Blue" : "Red"; const color = winner === 1 ? this.PLAYER_1_COLOR : this.PLAYER_2_COLOR; this.ctx.textAlign = "center"; this.ctx.textBaseline = "middle"; this.ctx.font = "48px sans-serif"; this.ctx.fillStyle = color; this.ctx.fillText(`${team_name} team wins!`, this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2); Object.values(this.game_over_buttons).forEach(button => button.draw(this.mousePos)); this.ctx.restore(); }
             gameLoop() { this.update_game_state(); this.draw(); requestAnimationFrame(this.gameLoop); }
         }
-
         class Plate {
             constructor(owner, plate_id, x, y, texture, angle, game) { this.game = game; this.owner = owner; this.id = plate_id; this.pos = new Vector2(x, y); this.vel = new Vector2(0, 0); this.angle = angle; this.angular_velocity = 0; this.size = this.game.PLATE_SIZE; this.original_image = texture; this.corners = []; this.update_corners(); this.fading = 0; this.offscreenCanvas = document.createElement('canvas'); this.offscreenCanvas.width = this.size; this.offscreenCanvas.height = this.size; this.offscreenCtx = this.offscreenCanvas.getContext('2d'); this.offscreenCtx.drawImage(this.original_image, 0, 0, this.size, this.size); }
             update_corners() { const half_size = this.size / 2; const local_corners = [ new Vector2(-half_size, -half_size), new Vector2(half_size, -half_size), new Vector2(half_size, half_size), new Vector2(-half_size, half_size) ]; this.corners = local_corners.map(p => this.pos.add(p.rotate(-this.angle))); }
@@ -523,25 +463,34 @@
             get_rect() { const xs = this.corners.map(c => c.x); const ys = this.corners.map(c => c.y); const minX = Math.min(...xs); const minY = Math.min(...ys); const maxX = Math.max(...xs); const maxY = Math.max(...ys); return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }; }
             is_point_colliding(point) { const rect = this.get_rect(); if (point.x < rect.x || point.x > rect.x + rect.width || point.y < rect.y || point.y > rect.y + rect.height) { return false; } const local_pos_rotated = point.sub(this.pos).rotate(this.angle); const local_x = Math.floor(local_pos_rotated.x + this.size / 2); const local_y = Math.floor(local_pos_rotated.y + this.size / 2); if (local_x < 0 || local_x >= this.size || local_y < 0 || local_y >= this.size) return false; const pixelData = this.offscreenCtx.getImageData(local_x, local_y, 1, 1).data; return pixelData[3] > 0; }
         }
-
         class Button {
             constructor(text, pos, font, ctx, base_color = 'rgb(255,255,255)', hover_color = 'rgb(200,200,200)') { this.text = text; this.pos = pos; this.font = font; this.ctx = ctx; this.base_color = base_color; this.hover_color = hover_color; this.rect = null; this.update_rect(); }
             update_rect() { this.ctx.font = this.font; const metrics = this.ctx.measureText(this.text); this.rect = { width: metrics.width, height: parseInt(this.font, 10), x: this.pos.x - metrics.width / 2, y: this.pos.y - parseInt(this.font, 10) / 2 }; }
             check_hover(mouse_pos) { if (!this.rect) return false; return mouse_pos.x >= this.rect.x && mouse_pos.x <= this.rect.x + this.rect.width && mouse_pos.y >= this.rect.y && mouse_pos.y <= this.rect.y + this.rect.height; }
             draw(mouse_pos) { this.ctx.save(); this.ctx.font = this.font; this.ctx.fillStyle = this.check_hover(mouse_pos) ? this.hover_color : this.base_color; this.ctx.textAlign = "center"; this.ctx.textBaseline = "middle"; this.ctx.fillText(this.text, this.pos.x, this.pos.y); this.ctx.restore(); }
         }
-
+        // ▼▼▼ 修正箇所 ▼▼▼
         function resizeGame() {
-            const gameCanvas = document.getElementById('gameCanvas'); const windowRatio = window.innerWidth / window.innerHeight; const gameRatio = 1120 / 600;
-            let newWidth; let newHeight;
-            if (windowRatio > gameRatio) { newHeight = window.innerHeight; newWidth = newHeight * gameRatio; } 
-            else { newWidth = window.innerWidth; newHeight = newWidth / gameRatio; }
-            gameCanvas.style.width = newWidth + 'px'; gameCanvas.style.height = newHeight + 'px';
+            const gameCanvas = document.getElementById('gameCanvas');
+            const container = document.getElementById('gameContainer');
+            const containerRatio = container.clientWidth / container.clientHeight;
+            const gameRatio = 1120 / 600;
+            let newWidth;
+            let newHeight;
+            if (containerRatio > gameRatio) {
+                newHeight = container.clientHeight;
+                newWidth = newHeight * gameRatio;
+            } else {
+                newWidth = container.clientWidth;
+                newHeight = newWidth / gameRatio;
+            }
+            gameCanvas.style.width = newWidth + 'px';
+            gameCanvas.style.height = newHeight + 'px';
         }
+        // ▲▲▲ 修正箇所ここまで ▲▲▲
         window.addEventListener('resize', resizeGame);
-
         window.onload = () => {
-            resizeGame(); 
+            resizeGame();
             new SosGame('gameCanvas');
         };
     </script>
