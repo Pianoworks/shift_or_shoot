@@ -547,7 +547,29 @@
             draw_roulette() { this.draw_game_board(); this.ctx.save(); this.ctx.textAlign = "center"; this.ctx.textBaseline = "middle"; if (this.game_state === "FIRST_PLAYER_ROULETTE") { this.ctx.font = "48px sans-serif"; this.ctx.fillStyle = this.roulette_color; this.ctx.fillText("Click to determine first player...", this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2); } else { this.ctx.font = "48px sans-serif"; this.ctx.fillStyle = this.current_player === 1 ? this.PLAYER_1_COLOR : this.PLAYER_2_COLOR; const teamName = this.current_player === 1 ? "Blue" : "Red"; this.ctx.fillText(`${teamName} team starts!`, this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2); } this.ctx.restore(); this.draw_ui(); }
             draw_game_board() { this.ctx.drawImage(this.assets.wood_texture, this.CONTENT_X_OFFSET, 0, this.CONTENT_WIDTH, this.CONTENT_HEIGHT); const boardX = (this.SCREEN_WIDTH - this.BOARD_WIDTH) / 2; const boardY = (this.SCREEN_HEIGHT - this.BOARD_HEIGHT) / 2; this.ctx.drawImage(this.assets.marble_texture, boardX, boardY, this.BOARD_WIDTH, this.BOARD_HEIGHT); this.ctx.strokeStyle = this.WHITE; this.ctx.lineWidth = 2; this.ctx.beginPath(); this.ctx.moveTo(this.SCREEN_WIDTH / 2, boardY); this.ctx.lineTo(this.SCREEN_WIDTH / 2, boardY + this.BOARD_HEIGHT); this.ctx.stroke(); this.ctx.strokeStyle = this.PLAYER_2_COLOR; this.ctx.lineWidth = 8; this.ctx.beginPath(); this.ctx.moveTo(boardX, boardY); this.ctx.lineTo(boardX, boardY + this.BOARD_HEIGHT); this.ctx.stroke(); this.ctx.strokeStyle = this.PLAYER_1_COLOR; this.ctx.lineWidth = 8; this.ctx.beginPath(); this.ctx.moveTo(boardX + this.BOARD_WIDTH, boardY); this.ctx.lineTo(boardX + this.BOARD_WIDTH, boardY + this.BOARD_HEIGHT); this.ctx.stroke(); this.plates.forEach(plate => { const rect = plate.get_rect(); if (rect.x + rect.width > 0 && rect.x < this.SCREEN_WIDTH && rect.y + rect.height > 0 && rect.y < this.SCREEN_HEIGHT) { plate.draw(this.ctx); } }); if (this.selected_plate && this.drag_start_pos) { this.ctx.strokeStyle = this.WHITE; this.ctx.lineWidth = 2; this.ctx.beginPath(); this.ctx.moveTo(this.drag_start_pos.x, this.drag_start_pos.y); this.ctx.lineTo(this.mousePos.x, this.mousePos.y); this.ctx.stroke(); } this.draw_ui(); }
             draw_sound_buttons() { Object.values(this.sound_buttons).forEach(button => button.draw(this.mousePos)); }
-            draw_ui() { const ui_data = [ { id: 1, color: this.PLAYER_1_COLOR, pos: new Vector2(240, 60) }, { id: 2, color: this.PLAYER_2_COLOR, pos: new Vector2(this.SCREEN_WIDTH - 260, 60) } ]; this.ctx.save(); ui_data.forEach(data => { const score = this.scores[data.id]; const candleImg = this.assets.candle_images[0]; const cx = data.pos.x, cy = data.pos.y; this.ctx.drawImage(candleImg, cx - candleImg.width/2, cy - candleImg.height/2); this.ctx.font = "32px sans-serif"; this.ctx.fillStyle = data.color; this.ctx.textAlign = "left"; this.ctx.textBaseline = "middle"; this.ctx.fillText(score, cx + candleImg.width/2 - 40, cy + 25); }); if (this.game_state === "PLAYER_TURN" || this.game_state === "CPU_THINKING") { const color = this.current_player === 1 ? this.PLAYER_1_COLOR : this.PLAYER_2_COLOR; const name = this.current_player === 1 ? "Blue" : "Red"; this.ctx.font = "48px sans-serif"; this.ctx.fillStyle = color; this.ctx.textAlign = "center"; this.ctx.textBaseline = "middle"; this.ctx.fillText(`${name}'s turn`, this.SCREEN_WIDTH / 2, 60); } this.ctx.restore(); }
+            draw_ui() {
+                const ui_data = [
+                    { id: 1, color: this.PLAYER_1_COLOR, pos: new Vector2(240, 60) },
+                    { id: 2, color: this.PLAYER_2_COLOR, pos: new Vector2(this.SCREEN_WIDTH - 260, 60) }
+                ];
+                this.ctx.save();
+                ui_data.forEach(data => {
+                    const score = this.scores[data.id];
+                    const candleImg = this.assets.candle_images[0];
+                    const cx = data.pos.x, cy = data.pos.y;
+                    this.ctx.drawImage(candleImg, cx - candleImg.width/2, cy - candleImg.height/2);
+                    this.ctx.font = "32px sans-serif"; this.ctx.fillStyle = data.color; this.ctx.textAlign = "left"; this.ctx.textBaseline = "middle";
+                    this.ctx.fillText(score, cx + candleImg.width/2 - 40, cy + 25);
+                    });
+                if (this.game_state === "PLAYER_TURN" || this.game_state === "CPU_THINKING") {
+                    const color = this.current_player === 1 ? this.PLAYER_1_COLOR : this.PLAYER_2_COLOR; const name = this.current_player === 1 ? "Blue" : "Red"; this.ctx.font = "48px sans-serif"; this.ctx.fillStyle = color; this.ctx.textAlign = "center"; this.ctx.textBaseline = "middle"; this.ctx.fillText(`${name}'s turn`, this.SCREEN_WIDTH / 2, 60);
+                }
+                this.ctx.restore();
+                if (this.game_mode === 'vs_cpu' && this.cpu_difficulty) {
+                    this.ctx.font = "32px sans-serif";　this.ctx.textAlign = "left"; this.ctx.fillStyle = this.WHITE; const difficulty_x = this.sound_buttons.se.pos.x + 130; const difficulty_y = this.SCREEN_HEIGHT - 30;
+                    this.ctx.fillText(`CPU: ${this.cpu_difficulty.charAt(0).toUpperCase() + this.cpu_difficulty.slice(1)}`, difficulty_x, difficulty_y);
+                }
+            }
             draw_score_popup() { if (this.game_state === "CANDLE_ANIMATION" && this.anim_candle_img) { this.ctx.save(); this.ctx.globalAlpha = this.candle_alpha / 255; const img = this.anim_candle_img; this.ctx.drawImage(img, this.candle_pos.x - img.width / 2, this.candle_pos.y - img.height / 2); this.ctx.restore(); } if (this.score_popup_alpha > 0) { this.ctx.save(); this.ctx.globalAlpha = this.score_popup_alpha / 255; this.ctx.font = "48px sans-serif"; this.ctx.fillStyle = this.score_popup_color; this.ctx.textAlign = "center"; this.ctx.textBaseline = "middle"; this.ctx.fillText(this.score_popup_text, this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 - 50); this.ctx.restore(); } }
             draw_game_over() { this.ctx.save(); this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; this.ctx.fillRect(0, 0, this.SCREEN_WIDTH, this.SCREEN_HEIGHT); const winner = this.scores[1] >= this.WINNING_SCORE ? 1 : 2; const team_name = winner === 1 ? "Blue" : "Red"; const color = winner === 1 ? this.PLAYER_1_COLOR : this.PLAYER_2_COLOR; this.ctx.textAlign = "center"; this.ctx.textBaseline = "middle"; this.ctx.font = "48px sans-serif"; this.ctx.fillStyle = color; this.ctx.fillText(`${team_name} team wins!`, this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2); Object.values(this.game_over_buttons).forEach(button => button.draw(this.mousePos)); this.ctx.restore(); }
             gameLoop() { this.update_game_state(); this.draw(); requestAnimationFrame(this.gameLoop); }
@@ -587,6 +609,7 @@
     </script>
 </body>
 </html>
+
 
 
 
