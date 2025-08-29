@@ -399,67 +399,50 @@
             }
 
              perform_hard_ai_move() {
-                const cpu_plates = this.plates.filter(p => p.owner === 2);
-                const player_plates = this.plates.filter(p => p.owner === 1);
-                if (cpu_plates.length === 0) return;
-                const board_x = (this.SCREEN_WIDTH - this.BOARD_WIDTH) / 2;
-                const cpu_goal_line_x = board_x;
-                const player_goal_line_x = board_x + this.BOARD_WIDTH;
-
-                // 優先度1: 2得点可能なシュートコースを探す
-                for (const plate of cpu_plates) {
-                    const goal_y = Math.random() * this.BOARD_HEIGHT + (this.SCREEN_HEIGHT - this.BOARD_HEIGHT) / 2;
-                    const force_vector = new Vector2(cpu_goal_line_x - plate.pos.x, goal_y - plate.pos.y).normalize().multiply(150); // 強めの力でシミュレート
-                    const outcome = this.simulate_shot(plate, force_vector, 2, 2); // 2得点シミュレーション
-                    if (outcome.scored && !outcome.penalty) {
-                        this.play_sound('shoot');
-                        plate.apply_force_and_torque(force_vector.multiply(0.8), new Vector2(0, 0)); // 必要十分な力に調整
-                        return;
-                    }
-                }
-
-                // 優先度2: プレイヤーのゴールを阻止する
-                for (const p_plate of player_plates) {
-                    const threat_force = new Vector2(player_goal_line_x - p_plate.pos.x, p_plate.pos.y - p_plate.pos.y).normalize().multiply(150);
-                    const threat_outcome = this.simulate_shot(p_plate, threat_force, 1);
-                    if (threat_outcome.scored && !threat_outcome.penalty) {
-                        for (const cpu_plate of cpu_plates) {
-                            const block_pos = new Vector2((p_plate.pos.x + player_goal_line_x) / 2, p_plate.pos.y);
-                            const block_force = block_pos.sub(cpu_plate.pos).normalize().multiply(100);
-                            const block_outcome = this.simulate_shot(cpu_plate, block_force, 2);
-                            if (!block_outcome.penalty) {
-                                this.play_sound('shoot');
-                                cpu_plate.apply_force_and_torque(block_force, new Vector2(0, 0));
-                                return;
-                            }
+                let best_move = null;
+                let best_score = -Infinity;
+        
+                // すべての自チームの板を対象に、考えうるすべての手をシミュレート
+                for (const plate of cpuPlates) {
+                    // 例: 複数の方向と強さの組み合わせを試す
+                    for (let i = 0; i < 20; i++) {
+                        const random_angle = Math.random() * Math.PI * 2;
+                        const random_power = 50 + Math.random() * 200;
+                        const force_vector = new Vector2(Math.cos(random_angle), Math.sin(random_angle)).multiply(random_power);
+                        
+                        // シミュレーション実行
+                        const { final_plates, score_change, out_of_bounds } = this.simulate_full_turn(plate, force_vector, new Vector2(0, 0));
+                        
+                        // 評価関数を適用
+                        const current_score = this.evaluate_board(final_plates, score_change, out_of_bounds);
+        
+                        if (current_score > best_score) {
+                            best_score = current_score;
+                            best_move = { plate, force_vector };
                         }
                     }
                 }
-
-                // 優先度3: 次の手番で得点可能なシュートコースを確保する
-                for (let i = 0; i < 5; i++) {
-                    const plate = cpu_plates[Math.floor(Math.random() * cpu_plates.length)];
-                    const target_pos = new Vector2(cpu_goal_line_x + 50 + Math.random() * 100, Math.random() * this.BOARD_HEIGHT + (this.SCREEN_HEIGHT - this.BOARD_HEIGHT) / 2);
-                    const force_vector = target_pos.sub(plate.pos).normalize().multiply(30 + Math.random() * 50);
-                    const outcome = this.simulate_shot(plate, force_vector, 2);
-                    if (!outcome.penalty) {
-                        this.play_sound('shoot');
-                        plate.apply_force_and_torque(force_vector, new Vector2(0, 0));
-                        return;
-                    }
-                }
-
-                // 優先度4: 僅かに位置をずらす
-                const plate1 = cpu_plates[Math.floor(Math.random() * cpu_plates.length)];
-                const other_plates = this.plates.filter(p => p !== plate1);
-                if (other_plates.length > 0) {
-                    const plate2 = other_plates[Math.floor(Math.random() * other_plates.length)];
-                    const force_vector = plate2.pos.sub(plate1.pos).normalize().multiply(20);
-                    this.play_sound('shoot');
-                    plate1.apply_force_and_torque(force_vector, new Vector2(0, 0));
+                
+                // 最も評価の高い手を実行
+                if (best_move) {
+                    this.simulate_shot(best_move.plate, best_move.force_vector, new Vector2(0, 0), cpuPlates, playerPlates, true);
+                    return;
+                } else {
+                    // フォールバック: 有効な手がない場合、ランダムな行動を取る
+                    const randomPlate = cpuPlates[Math.floor(Math.random() * cpuPlates.length)];
+                    const randomForce = new Vector2(Math.random() - 0.5, Math.random() - 0.5).normalize().multiply(1.0);
+                    this.simulate_shot(randomPlate, randomForce, new Vector2(0, 0), cpuPlates, playerPlates, true);
                 }
             }
+
+            // 新しいヘルパーメソッド
+            // simulate_full_turn(plate_to_move, force, offset)
+            // 全てのプレートの動きと衝突をシミュレートし、最終的な状態を返すメソッド。
+            // これにより、得点だけでなく、盤面の最終的な状態を評価できます。
             
+            // evaluate_board(plates, score_change, out_of_bounds)
+            // 盤面の状態を数値で評価するメソッド。
+            // スコアの変化（+500）、相手の板の排除（+100）、自チームの板がゴールに近い（+50）など、様々な要素を考慮します。            
             sim_resolve_collisions(sim_plates) {
                 for (let i = 0; i < sim_plates.length; i++) {
                     for (let j = i + 1; j < sim_plates.length; j++) {
@@ -609,6 +592,7 @@
     </script>
 </body>
 </html>
+
 
 
 
