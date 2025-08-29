@@ -213,7 +213,11 @@
                     // ここで音声ロードを開始
                             this.loadSounds().then(() => {
                                 if (this.audioCtx && this.audioCtx.state === 'suspended') { this.audioCtx.resume(); }
-                                if (this.bgm_on) { this.assets.bgm.play(); }
+                                // BGMがオンであり、かつまだ再生されていない場合のみ再生
+                                if (this.bgm_on && this.assets.bgm && this.assets.bgm.paused) {
+                                    this.assets.bgm.play();
+                                }
+                        // ▲▲▲ 修正箇所ここまで ▲▲▲
                                 this.play_sound('click');
                             });
                             this.game_state = "MODE_SELECTION";
@@ -497,3 +501,4 @@
     </script>
 </body>
 </html>
+
