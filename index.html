@@ -148,6 +148,9 @@
     }
     
         async loadSounds() {
+            if (this.is_sounds_loaded) { 
+                return; // 既にロード済みなら何もしない
+            } 
             const soundPaths = {
                 bgm: this.asset_path + 'bgm.mp3', click: this.asset_path + 'click.mp3', shoot: this.asset_path + 'shoot.mp3', collision: this.asset_path + 'collision.mp3', point: this.asset_path + 'point.mp3',
                 victory: this.asset_path + 'victory.mp3', notice: this.asset_path + 'notice.mp3', roulette: this.asset_path + 'roulette.mp3', roulettedet: this.asset_path + 'roulettedet.mp3'
@@ -165,6 +168,7 @@
                 roulette: this.assets.roulette, roulettedet: this.assets.roulettedet
             };
             this.assets.bgm.loop = true;
+            this.is_sounds_loaded = true; // ★成功時にフラグをtrueに
         }
         // ▲▲▲ 修正箇所ここまで ▲▲▲
             
@@ -210,16 +214,27 @@
                 switch(this.game_state) {
                     case "TITLE_SCREEN":
                         if (this.title_buttons.start.check_hover(mouse_pos)) {
-                    // ここで音声ロードを開始
-                            this.loadSounds().then(() => {
-                                if (this.audioCtx && this.audioCtx.state === 'suspended') { this.audioCtx.resume(); }
-                                // BGMがオンであり、かつまだ再生されていない場合のみ再生
+                            // 音声がまだロードされていなければ、ここでロードを開始
+                            if (!this.is_sounds_loaded) {
+                                this.loadSounds().then(() => {
+                                    if (this.audioCtx && this.audioCtx.state === 'suspended') {
+                                        this.audioCtx.resume();
+                                    }
+                                    if (this.bgm_on && this.assets.bgm && this.assets.bgm.paused) {
+                                        this.assets.bgm.play();
+                                    }
+                                    this.play_sound('click');
+                                 });
+                            } else {
+                        // ロード済みなら、再生ロジックだけ実行
+                                if (this.audioCtx && this.audioCtx.state === 'suspended') {
+                                    this.audioCtx.resume();
+                                }
                                 if (this.bgm_on && this.assets.bgm && this.assets.bgm.paused) {
                                     this.assets.bgm.play();
                                 }
-                        // ▲▲▲ 修正箇所ここまで ▲▲▲
                                 this.play_sound('click');
-                            });
+                            }
                             this.game_state = "MODE_SELECTION";
                         } else if (this.title_buttons.how_to.check_hover(mouse_pos)) {
                             this.play_sound('click'); this.game_state = "FADE_IN_ABOUT_2"; this.fade_alpha = 255;
@@ -501,4 +516,5 @@
     </script>
 </body>
 </html>
+
 
