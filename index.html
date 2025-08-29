@@ -281,13 +281,15 @@
             }
 
             // --- ▼▼▼ 変更点: AIロジック全体を修正 ▼▼▼
-            perform_ai_move() {
-                if (this.cpu_difficulty === 'normal') {
-                    this.perform_normal_ai_move();
-                } else {
-                    this.perform_easy_ai_move();
-                }
-            }
+            perform_ai_move() {
+                if (this.cpu_difficulty === 'normal') {
+                    this.perform_normal_ai_move();
+                } else if (this.cpu_difficulty === 'easy') {
+                    this.perform_easy_ai_move();
+                } else if (this.cpu_difficulty === 'hard') {
+                    this.perform_hard_ai_move();
+                }
+            }
 
             perform_easy_ai_move(is_fallback = false) {
                 const miss_chance = this.cpu_difficulty === 'easy' ? 0.2 : 0.0;
@@ -394,6 +396,68 @@
 
                 // Fallback: どうしても安全な手がない場合
                 this.perform_easy_ai_move(true);
+            }
+
+             perform_hard_ai_move() {
+                const cpu_plates = this.plates.filter(p => p.owner === 2);
+                const player_plates = this.plates.filter(p => p.owner === 1);
+                if (cpu_plates.length === 0) return;
+                const board_x = (this.SCREEN_WIDTH - this.BOARD_WIDTH) / 2;
+                const cpu_goal_line_x = board_x;
+                const player_goal_line_x = board_x + this.BOARD_WIDTH;
+
+                // 優先度1: 2得点可能なシュートコースを探す
+                for (const plate of cpu_plates) {
+                    const goal_y = Math.random() * this.BOARD_HEIGHT + (this.SCREEN_HEIGHT - this.BOARD_HEIGHT) / 2;
+                    const force_vector = new Vector2(cpu_goal_line_x - plate.pos.x, goal_y - plate.pos.y).normalize().multiply(150); // 強めの力でシミュレート
+                    const outcome = this.simulate_shot(plate, force_vector, 2, 2); // 2得点シミュレーション
+                    if (outcome.scored && !outcome.penalty) {
+                        this.play_sound('shoot');
+                        plate.apply_force_and_torque(force_vector.multiply(0.8), new Vector2(0, 0)); // 必要十分な力に調整
+                        return;
+                    }
+                }
+
+                // 優先度2: プレイヤーのゴールを阻止する
+                for (const p_plate of player_plates) {
+                    const threat_force = new Vector2(player_goal_line_x - p_plate.pos.x, p_plate.pos.y - p_plate.pos.y).normalize().multiply(150);
+                    const threat_outcome = this.simulate_shot(p_plate, threat_force, 1);
+                    if (threat_outcome.scored && !threat_outcome.penalty) {
+                        for (const cpu_plate of cpu_plates) {
+                            const block_pos = new Vector2((p_plate.pos.x + player_goal_line_x) / 2, p_plate.pos.y);
+                            const block_force = block_pos.sub(cpu_plate.pos).normalize().multiply(100);
+                            const block_outcome = this.simulate_shot(cpu_plate, block_force, 2);
+                            if (!block_outcome.penalty) {
+                                this.play_sound('shoot');
+                                cpu_plate.apply_force_and_torque(block_force, new Vector2(0, 0));
+                                return;
+                            }
+                        }
+                    }
+                }
+
+                // 優先度3: 次の手番で得点可能なシュートコースを確保する
+                for (let i = 0; i < 5; i++) {
+                    const plate = cpu_plates[Math.floor(Math.random() * cpu_plates.length)];
+                    const target_pos = new Vector2(cpu_goal_line_x + 50 + Math.random() * 100, Math.random() * this.BOARD_HEIGHT + (this.SCREEN_HEIGHT - this.BOARD_HEIGHT) / 2);
+                    const force_vector = target_pos.sub(plate.pos).normalize().multiply(30 + Math.random() * 50);
+                    const outcome = this.simulate_shot(plate, force_vector, 2);
+                    if (!outcome.penalty) {
+                        this.play_sound('shoot');
+                        plate.apply_force_and_torque(force_vector, new Vector2(0, 0));
+                        return;
+                    }
+                }
+
+                // 優先度4: 僅かに位置をずらす
+                const plate1 = cpu_plates[Math.floor(Math.random() * cpu_plates.length)];
+                const other_plates = this.plates.filter(p => p !== plate1);
+                if (other_plates.length > 0) {
+                    const plate2 = other_plates[Math.floor(Math.random() * other_plates.length)];
+                    const force_vector = plate2.pos.sub(plate1.pos).normalize().multiply(20);
+                    this.play_sound('shoot');
+                    plate1.apply_force_and_torque(force_vector, new Vector2(0, 0));
+                }
             }
             
             sim_resolve_collisions(sim_plates) {
@@ -523,6 +587,7 @@
     </script>
 </body>
 </html>
+
 
 
 
