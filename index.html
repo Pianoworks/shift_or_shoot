@@ -566,7 +566,7 @@
                 }
                 this.ctx.restore();
                 if (this.game_mode === 'vs_cpu' && this.cpu_difficulty) {
-                    this.ctx.font = "32px sans-serif";　this.ctx.textAlign = "left"; this.ctx.fillStyle = this.WHITE; const difficulty_x = this.sound_buttons.se.pos.x + 130; const difficulty_y = this.SCREEN_HEIGHT - 30;
+                    this.ctx.font = "32px sans-serif";　this.ctx.textAlign = "left"; this.ctx.fillStyle = this.WHITE; const difficulty_x = this.sound_buttons.se.pos.x + 130; const difficulty_y = this.SCREEN_HEIGHT - 15;
                     this.ctx.fillText(`CPU: ${this.cpu_difficulty.charAt(0).toUpperCase() + this.cpu_difficulty.slice(1)}`, difficulty_x, difficulty_y);
                 }
             }
@@ -609,6 +609,7 @@
     </script>
 </body>
 </html>
+
 
 
 
