@@ -456,7 +456,7 @@
 
             sim_plate_to_shoot.apply_force_and_torque(force_vector, new Vector2(0,0));
 
-            for (let i = 0; i < 60; i++){  // 1秒間シミュレート
+            for (let i = 0; i < 45; i++){  // 0.75秒間シミュレート
                 if (!sim_plates.some(p => p.is_moving())) break;
                 sim_plates.forEach(p => p.update());
 
@@ -509,7 +509,7 @@
                 for (let y_offset = 0; y_offset <= this.BOARD_HEIGHT; y_offset += this.PLATE_SIZE / 2) {
                     const target_pos = new Vector2(goal_line_x, board_y + y_offset);
                     
-                    for (let power = 50; power <= 250; power += 40) {
+                    for (let power = 100; power <= 300; power += 50) {
                         const direction = target_pos.sub(plate.pos);
                         if (direction.lengthSquared() === 0) continue;
                         const force = direction.normalize().multiply(power);
@@ -589,7 +589,7 @@ _findBestBlockingMove() {
     if (direction.lengthSquared() === 0) return null;
 
     let best_move = null;
-    const powers = [60, 90, 120];
+    const powers = [30, 60, 90, 120];
     
     for (const power of powers) {
         const block_force = direction.normalize().multiply(power);
@@ -659,7 +659,7 @@ _findBestBlockingMove() {
     const direction = target_pos.sub(F.pos);
     if (direction.lengthSquared() === 0) return null;
 
-    const powers = [120, 90, 60];
+    const powers = [30, 75, 120];
     let best_move = null;
     let min_dist_to_target = Infinity;
 
@@ -691,8 +691,6 @@ _findBestBlockingMove() {
          * @returns {object|null} 最善手 { plate, force } または null
          */
  
-
-
        _findMinimalMove() {
             console.log("findMinimalMove() is called."); // デバッグログ
     const player_plates = this.plates.filter(p => p.owner === 1);
@@ -744,7 +742,7 @@ _findBestBlockingMove() {
     if (!farthest_cpu_plate) return null;
 
     // 3. 複数のパワーでシミュレーションを行い、最適な手を探す
-    const powers = [30, 90, 120];
+    const powers = [60, 90, 120];
     let best_move = null;
     let min_dist_to_spot = Infinity;
 
@@ -814,7 +812,7 @@ _findBestBlockingMove() {
 
                 sim_plate_to_shoot.apply_force_and_torque(force_vector, new Vector2(0,0));
 
-                for (let i = 0; i < 90; i++) {
+                for (let i = 0; i < 60; i++) {
                     if (!sim_plates.some(p => p.is_moving())) break;
                     sim_plates.forEach(p => p.update());
                     this.sim_resolve_collisions(sim_plates);
@@ -939,7 +937,6 @@ _findBestBlockingMove() {
     </script>
 </body>
 </html>
-
 
 
 
