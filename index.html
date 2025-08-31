@@ -188,7 +188,7 @@
                 this.difficulty_selection_buttons = {
                     easy: new Button("Easy", new Vector2(this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 + 80), "48px sans-serif", this.ctx),
                     normal: new Button("Normal", new Vector2(this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 + 160), "48px sans-serif", this.ctx),
-                    hard: new Button("Hard ver.2025.8.31", new Vector2(this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 + 240), "48px sans-serif", this.ctx),
+                    hard: new Button("Hard※作業中", new Vector2(this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2 + 240), "48px sans-serif", this.ctx),
                 };
                 this.sound_buttons = {
                     bgm: new Button("BGM on", new Vector2(230, this.SCREEN_HEIGHT - 30), "32px sans-serif", this.ctx),
@@ -589,7 +589,7 @@ _findBestBlockingMove() {
     if (direction.lengthSquared() === 0) return null;
 
     let best_move = null;
-    const powers = [130, 110, 90, 70, 50, 30];
+    const powers = [60, 90, 120];
     
     for (const power of powers) {
         const block_force = direction.normalize().multiply(power);
@@ -659,7 +659,7 @@ _findBestBlockingMove() {
     const direction = target_pos.sub(F.pos);
     if (direction.lengthSquared() === 0) return null;
 
-    const powers = [150, 120, 90, 60, 30];
+    const powers = [120, 90, 60];
     let best_move = null;
     let min_dist_to_target = Infinity;
 
@@ -703,7 +703,7 @@ _findBestBlockingMove() {
     let best_spot = new Vector2(cpu_goal_line_x + this.PLATE_SIZE * 2, this.SCREEN_HEIGHT / 2);
     let max_dist_from_plates = 0;
 
-    for (let x = cpu_goal_line_x + this.PLATE_SIZE; x < this.SCREEN_WIDTH / 2; x += 50) {
+    for (let x = cpu_goal_line_x + this.PLATE_SIZE; x < this.SCREEN_WIDTH / 2; x += 100) {
         for (let y = this.SCREEN_HEIGHT / 2 - this.BOARD_HEIGHT / 3; y < this.SCREEN_HEIGHT / 2 + this.BOARD_HEIGHT / 3; y += 50) {
             const current_pos = new Vector2(x, y);
             let min_dist_to_plate = Infinity;
@@ -744,7 +744,7 @@ _findBestBlockingMove() {
     if (!farthest_cpu_plate) return null;
 
     // 3. 複数のパワーでシミュレーションを行い、最適な手を探す
-    const powers = [30, 60, 90, 120, 150];
+    const powers = [30, 90, 120];
     let best_move = null;
     let min_dist_to_spot = Infinity;
 
