@@ -820,65 +820,78 @@
             find_collision_point(p1, p2, axis) { const verts1 = [...p1.corners].sort((a, b) => a.dot(axis) - b.dot(axis)); const verts2 = [...p2.corners].sort((a, b) => a.dot(axis) - b.dot(axis)); return verts1[verts1.length-1].add(verts2[0]).divide(2); }
             get_axes(plate) { const axes = []; for (let i = 0; i < plate.corners.length; i++) { const p1 = plate.corners[i]; const p2 = plate.corners[(i + 1) % plate.corners.length]; const edge = p2.sub(p1); if (edge.lengthSquared() > 0) { axes.push(edge.rotate(90).normalize()); } } return axes; }
             project(plate, axis) { const dots = plate.corners.map(c => c.dot(axis)); return [Math.min(...dots), Math.max(...dots)]; }
-            evaluate_turn_end() {
-                const board_x = (this.SCREEN_WIDTH - this.BOARD_WIDTH) / 2;
-                const board_y = (this.SCREEN_HEIGHT - this.BOARD_HEIGHT) / 2;
-                const board_rect = { x: board_x, y: board_y, width: this.BOARD_WIDTH, height: this.BOARD_HEIGHT, left: board_x, right: board_x + this.BOARD_WIDTH };
-                const plates_to_keep = [];
-                const out_of_bounds_plates = [];
-
-                for(const plate of this.plates) {
-                    const is_out = !plate.corners.some(c => c.x >= board_rect.x && c.x <= board_rect.x + board_rect.width && c.y >= board_rect.y && c.y <= board_rect.y + board_rect.height);
-                    if (is_out) {
-                        out_of_bounds_plates.push(plate);
-                    } else {
-                        plates_to_keep.push(plate);
-                    }
-                }
-
-                if (out_of_bounds_plates.length === 0) return false;
-
-                const opponent = 3 - this.current_player;
-                let info = null;
-
-                // ★★★ ここからロジック修正 ★★★
-                // 最優先: バースト条件をチェック (相手の板が3枚とも盤外か)
-                const opponentPlatesOutOfBounds = out_of_bounds_plates.filter(p => p.owner === opponent).length;
-
-                if (opponentPlatesOutOfBounds === 3) {
-                    // バースト成立！
-                    info = { type: 'BURST!!', points: 3, winning_player: this.current_player, retain_turn: true };
-                } else {
-                    // バースト不成立の場合、通常の判定に移る
-                    // 優先度2: 相手の板を盤外に出してしまったか（ペナルティ）を判定
-                    const opponentPlateKnockedOut = out_of_bounds_plates.some(p => p.owner === opponent);
-
-                    if (opponentPlateKnockedOut) {
-                        info = { type: 'OUT', points: 1, winning_player: opponent, retain_turn: false };
-                    } else {
-                        // 優先度3: 得点（IN）か自爆（OUT）かを判定
-                        const goal_p1 = this.current_player === 1 && out_of_bounds_plates.some(p => p.owner === 1 && p.corners.every(c => c.x > board_rect.right));
-                        const goal_p2 = this.current_player === 2 && out_of_bounds_plates.some(p => p.owner === 2 && p.corners.every(c => c.x < board_rect.left));
-
-                        if (goal_p1 || goal_p2) {
-                            info = { type: 'IN', points: 2, winning_player: this.current_player, retain_turn: false };
-                        } else {
-                            info = { type: 'OUT', points: 1, winning_player: opponent, retain_turn: false };
-                        }
-                    }
-                }
-                // ★★★ ロジック修正ここまで ★★★
-
-                if (info) {
-                    this.turn_end_info = info;
-                    this.in_out_timer = 0.5 * this.FPS; // 0.5秒のタイマーを設定
-                    this.game_state = "SHOWING_IN_OUT_RESULT";
-                    this.plates = plates_to_keep;
-                    return true;
-                }
-                return false;
-            }
-            switch_player() { this.current_player = 3 - this.current_player; if (this.current_player === 2 && this.game_mode === 'vs_cpu') { this.game_state = "CPU_THINKING"; this.cpu_thinking_timer = 1 * this.FPS; } else { this.play_sound('notice'); this.start_turn_effects(); this.game_state = "PLAYER_TURN"; } }
+			evaluate_turn_end() {
+            	const board_x = (this.SCREEN_WIDTH - this.BOARD_WIDTH) / 2;
+            	const board_y = (this.SCREEN_HEIGHT - this.BOARD_HEIGHT) / 2;
+            	const board_rect = { x: board_x, y: board_y, width: this.BOARD_WIDTH, height: this.BOARD_HEIGHT, left: board_x, right: board_x + this.BOARD_WIDTH };
+            	const plates_to_keep = [];
+            	const out_of_bounds_plates = [];
+	
+            	for(const plate of this.plates) {
+	                const is_out = !plate.corners.some(c => c.x >= board_rect.x && c.x <= board_rect.x + board_rect.width && c.y >= board_rect.y && c.y <= board_rect.y + board_rect.height);
+                	if (is_out) {
+	                    out_of_bounds_plates.push(plate);
+                	} else {
+	                    plates_to_keep.push(plate);
+                	}
+            	}
+	
+            	if (out_of_bounds_plates.length === 0) return false;
+	
+            	const opponent = 3 - this.current_player;
+            	let info = null;
+	
+            	// ★変更点1: Y軸のゴールゾーンを定義
+            	const goal_y_center = board_rect.y + (board_rect.height / 2); // ボードY軸中心
+            	const goal_y_min = goal_y_center - 255;
+            	const goal_y_max = goal_y_center + 255;
+	
+            	// 最優先: バースト条件をチェック
+            	const opponentPlatesOutOfBounds = out_of_bounds_plates.filter(p => p.owner === opponent).length;
+            	if (opponentPlatesOutOfBounds === 3) {
+	                info = { type: 'BURST!!', points: 3, winning_player: this.current_player, retain_turn: true };
+            	} else {
+	                const opponentPlateKnockedOut = out_of_bounds_plates.some(p => p.owner === opponent);
+                	if (opponentPlateKnockedOut) {
+	                    info = { type: 'OUT', points: 1, winning_player: opponent, retain_turn: false };
+                	} else {
+	                    // ★変更点2: IN判定ロジックにY軸チェックを追加
+                    const goal_p1 = this.current_player === 1 && out_of_bounds_plates.some(p => {
+                        	if (p.owner !== 1) return false;
+                        	const p_min_y = Math.min(...p.corners.map(c => c.y));
+                        	const p_max_y = Math.max(...p.corners.map(c => c.y));
+                        	const vertically_aligned = p_max_y > goal_y_min && p_min_y < goal_y_max;
+                        	const horizontally_aligned = p.corners.every(c => c.x > board_rect.right);
+                        	return vertically_aligned && horizontally_aligned;
+                    	});
+	
+                    	const goal_p2 = this.current_player === 2 && out_of_bounds_plates.some(p => {
+	                        if (p.owner !== 2) return false;
+                        	const p_min_y = Math.min(...p.corners.map(c => c.y));
+                        	const p_max_y = Math.max(...p.corners.map(c => c.y));
+                        	const vertically_aligned = p_max_y > goal_y_min && p_min_y < goal_y_max;
+                        	const horizontally_aligned = p.corners.every(c => c.x < board_rect.left);
+                        	return vertically_aligned && horizontally_aligned;
+                    	});
+	
+                    if (goal_p1 || goal_p2) {
+                        	info = { type: 'IN', points: 2, winning_player: this.current_player, retain_turn: false };
+                    	} else {
+	                        info = { type: 'OUT', points: 1, winning_player: opponent, retain_turn: false };
+                    	}
+                	}
+            	}
+	
+            	if (info) {
+	                this.turn_end_info = info;
+                	this.in_out_timer = 0.5 * this.FPS;
+                	this.game_state = "SHOWING_IN_OUT_RESULT";
+                	this.plates = plates_to_keep;
+                	return true;
+            	}
+            	return false;
+        	}
+			switch_player() { this.current_player = 3 - this.current_player; if (this.current_player === 2 && this.game_mode === 'vs_cpu') { this.game_state = "CPU_THINKING"; this.cpu_thinking_timer = 1 * this.FPS; } else { this.play_sound('notice'); this.start_turn_effects(); this.game_state = "PLAYER_TURN"; } }
             start_turn_effects() { this.plates.forEach(plate => { if (plate.owner === this.current_player) { plate.fading = 255; } }); }
             check_game_over() { if (Object.values(this.scores).some(s => s >= this.WINNING_SCORE)) { this.game_state = "GAME_OVER"; if (!this.victory_sound_played) { this.play_sound('victory'); this.victory_sound_played = true; } } }
             draw() {
@@ -1026,6 +1039,7 @@
     </script>
 </body>
 </html>
+
 
 
 
