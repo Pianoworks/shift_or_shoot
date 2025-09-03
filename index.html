@@ -133,7 +133,7 @@
 
         async loadImages() {
         const assetPaths = {
-            title_image: this.asset_path + 'title.png', about1: this.asset_path + 'about1.png', about2: this.asset_path + 'about2.png', about3: this.asset_path + 'about3.png', about4: this.asset_path + 'about4.png',
+            title_image: this.asset_path + 'title.png', about1: this.asset_path + 'about1.png', about2: this.asset_path + 'about2.png', about3: this.asset_path + 'about3.png', about4: this.asset_path + 'about4.png', about5: this.asset_path + 'about5.png',
             candle0: this.asset_path + 'candle0.png', candle1: this.asset_path + 'candle1.png', candle2: this.asset_path + 'candle2.png', candle3: this.asset_path + 'candle3.png',
             wood_texture: this.asset_path + 'wood_texture.jpg', marble_texture: this.asset_path + 'marble_texture.jpg',
             plate1: this.asset_path + 'plate1.jpg', plate2: this.asset_path + 'plate2.jpg', plate3: this.asset_path + 'plate3.jpg', plate4: this.asset_path + 'plate4.jpg', plate5: this.asset_path + 'plate5.jpg', plate6: this.asset_path + 'plate6.jpg'
@@ -146,7 +146,7 @@
             return Promise.race([loadPromise, timeoutPromise]);
         });
         await Promise.all(assetPromises);
-            this.assets.about_images = [this.assets.about1, this.assets.about2, this.assets.about3, this.assets.about4];
+            this.assets.about_images = [this.assets.about1, this.assets.about2, this.assets.about3, this.assets.about4, this.assets.about5];
             this.assets.candle_images = { 0: this.assets.candle0, 1: this.assets.candle1, 2: this.assets.candle2, 3: this.assets.candle3 };
             this.assets.plate_textures = [this.assets.plate1, this.assets.plate2, this.assets.plate3, this.assets.plate4, this.assets.plate5, this.assets.plate6];
         }
@@ -212,7 +212,7 @@
             const mouse_pos = this.mousePos.copy();
             
                 // サウンドボタンの処理は多くの画面で共通のため、先に処理する
-                const sound_button_active_states = ["TITLE_SCREEN", "MODE_SELECTION", "DIFFICULTY_SELECTION", "ABOUT_PAGE_1", "ABOUT_PAGE_2", "ABOUT_PAGE_3", "ABOUT_PAGE_4", "PLAYER_TURN", "CPU_THINKING", "PLATES_MOVING", "CANDLE_ANIMATION", "GAME_OVER", "FIRST_PLAYER_ROULETTE", "SHOWING_ROULETTE_RESULT", "SHOWING_IN_OUT_RESULT"];
+                const sound_button_active_states = ["TITLE_SCREEN", "MODE_SELECTION", "DIFFICULTY_SELECTION", "ABOUT_PAGE_1", "ABOUT_PAGE_2", "ABOUT_PAGE_3", "ABOUT_PAGE_4", "ABOUT_PAGE_5", "PLAYER_TURN", "CPU_THINKING", "PLATES_MOVING", "CANDLE_ANIMATION", "GAME_OVER", "FIRST_PLAYER_ROULETTE", "SHOWING_ROULETTE_RESULT", "SHOWING_IN_OUT_RESULT"];
                 if (this.is_sounds_loaded && sound_button_active_states.includes(this.game_state)) {
                     if (this.sound_buttons.bgm.check_hover(mouse_pos)) { this.bgm_on = !this.bgm_on; this.sound_buttons.bgm.text = this.bgm_on ? "BGM on" : "BGM off"; if (this.bgm_on) { this.assets.bgm.play(); } else { this.assets.bgm.pause(); } return; }
                     if (this.sound_buttons.se.check_hover(mouse_pos)) { this.se_on = !this.se_on; this.sound_buttons.se.text = this.se_on ? "SE on" : "SE off"; return; }
@@ -254,8 +254,8 @@
                         else if (this.difficulty_selection_buttons.hard.check_hover(mouse_pos)) { this.cpu_difficulty = 'hard'; this.play_sound('click'); this.game_state = "FADE_OUT_FROM_TITLE"; this.fade_alpha = 0; }
                         break;
                     case "ABOUT_PAGE_1": this.play_sound('click'); this.game_state = "FADE_OUT_FROM_ABOUT_1"; this.fade_alpha = 0; break;
-                    case "ABOUT_PAGE_2": case "ABOUT_PAGE_3": const currentPage = parseInt(this.game_state.split('_')[2]); this.play_sound('click'); this.game_state = `ABOUT_PAGE_${currentPage + 1}`; break;
-                    case "ABOUT_PAGE_4": this.play_sound('click'); this.game_state = "FADE_OUT_FROM_ABOUT_4"; this.fade_alpha = 0; break;
+                    case "ABOUT_PAGE_2": case "ABOUT_PAGE_3": case "ABOUT_PAGE_4": const currentPage = parseInt(this.game_state.split('_')[2]); this.play_sound('click'); this.game_state = `ABOUT_PAGE_${currentPage + 1}`; break;
+                    case "ABOUT_PAGE_5": this.play_sound('click'); this.game_state = "FADE_OUT_FROM_ABOUT_5"; this.fade_alpha = 0; break;
                     case "FIRST_PLAYER_ROULETTE": this.play_sound('roulettedet'); this.current_player = (Math.floor(this.roulette_timer / 5) % 2 === 0) ? 1 : 2; this.game_state = "SHOWING_ROULETTE_RESULT"; this.roulette_timer = 2 * this.FPS; break;
                     case "PLAYER_TURN": for (const plate of this.plates) { if (plate.owner === this.current_player && plate.is_point_colliding(mouse_pos)) { this.play_sound('click'); this.selected_plate = plate; this.drag_start_pos = mouse_pos; this.click_offset = mouse_pos.sub(plate.pos); break; } } break;
                     case "GAME_OVER": if (this.game_over_buttons.to_title.check_hover(mouse_pos)) { this.init_game_session(); this.game_state = "TITLE_SCREEN"; this.fade_alpha = 255; } else { this.reset_game_vars(); this.game_state = "FIRST_PLAYER_ROULETTE"; this.roulette_timer = 120; } break;
@@ -271,7 +271,7 @@
                     "FADE_IN_ABOUT_1": () => { this.fade_alpha = Math.max(0, this.fade_alpha - this.TITLE_FADE_SPEED); if (this.fade_alpha === 0) this.game_state = "ABOUT_PAGE_1"; },
                     "FADE_IN_ABOUT_2": () => { this.fade_alpha = Math.max(0, this.fade_alpha - this.TITLE_FADE_SPEED); if (this.fade_alpha === 0) this.game_state = "ABOUT_PAGE_2"; },
                     "FADE_OUT_FROM_ABOUT_1": () => { this.fade_alpha = Math.min(255, this.fade_alpha + this.TITLE_FADE_SPEED); if (this.fade_alpha === 255) { this.game_state = "TITLE_SCREEN"; } },
-                    "FADE_OUT_FROM_ABOUT_4": () => { this.fade_alpha = Math.min(255, this.fade_alpha + this.TITLE_FADE_SPEED); if (this.fade_alpha === 255) { this.game_state = "TITLE_SCREEN"; } },
+                    "FADE_OUT_FROM_ABOUT_5": () => { this.fade_alpha = Math.min(255, this.fade_alpha + this.TITLE_FADE_SPEED); if (this.fade_alpha === 255) { this.game_state = "TITLE_SCREEN"; } },
                     "FADE_IN_TO_ROULETTE": () => { this.fade_alpha = Math.max(0, this.fade_alpha - this.TITLE_FADE_SPEED); if (this.fade_alpha === 0) { this.game_state = "FIRST_PLAYER_ROULETTE"; this.roulette_timer = 120; } },
                     "FIRST_PLAYER_ROULETTE": () => { this.roulette_timer--; this.roulette_color = (Math.floor(this.roulette_timer / 5) % 2 === 0) ? this.PLAYER_1_COLOR : this.PLAYER_2_COLOR; this.roulette_sound_timer--; if (this.roulette_sound_timer <= 0) { this.play_sound('roulette'); this.roulette_sound_timer = 0.2 * this.FPS; } if (this.roulette_timer <= 0) { this.play_sound('roulettedet'); this.current_player = Math.random() < 0.5 ? 1 : 2; this.game_state = "SHOWING_ROULETTE_RESULT"; this.roulette_timer = 2 * this.FPS; } },
                     "SHOWING_ROULETTE_RESULT": () => { this.roulette_timer--; if (this.roulette_timer <= 0) { this._setup_board(); if (this.current_player === 2 && this.game_mode === 'vs_cpu') { this.game_state = "CPU_THINKING"; this.cpu_thinking_timer = 1 * this.FPS; } else { this.start_turn_effects(); this.game_state = "PLAYER_TURN"; } } },
@@ -886,14 +886,14 @@
                 this.ctx.fillRect(0, 0, this.SCREEN_WIDTH, this.SCREEN_HEIGHT);
                 
                 // --- 状態に応じた描画処理 ---
-                const baseTitleStates = ["FADE_IN_TO_TITLE", "FADE_OUT_FROM_TITLE", "TITLE_WAITING_FOR_CLICK", "TITLE_LOADING_SOUNDS", "TITLE_SCREEN", "MODE_SELECTION", "DIFFICULTY_SELECTION", "ABOUT_PAGE_1", "ABOUT_PAGE_2", "ABOUT_PAGE_3", "ABOUT_PAGE_4", "FADE_IN_ABOUT_1", "FADE_IN_ABOUT_2", "FADE_OUT_FROM_ABOUT_1", "FADE_OUT_FROM_ABOUT_4"];
+                const baseTitleStates = ["FADE_IN_TO_TITLE", "FADE_OUT_FROM_TITLE", "TITLE_WAITING_FOR_CLICK", "TITLE_LOADING_SOUNDS", "TITLE_SCREEN", "MODE_SELECTION", "DIFFICULTY_SELECTION", "ABOUT_PAGE_1", "ABOUT_PAGE_2", "ABOUT_PAGE_3", "ABOUT_PAGE_4", "ABOUT_PAGE_5","FADE_IN_ABOUT_1", "FADE_IN_ABOUT_2", "FADE_OUT_FROM_ABOUT_1", "FADE_OUT_FROM_ABOUT_5"];
                 
                 if (this.game_state === "LOADING") {
                     this.ctx.fillStyle = this.WHITE; this.ctx.font = "32px sans-serif"; this.ctx.textAlign = "center";
                     this.ctx.fillText("Loading Assets...", this.SCREEN_WIDTH / 2, this.SCREEN_HEIGHT / 2);
                 } else if (baseTitleStates.includes(this.game_state)) {
                     // --- タイトル画面系の描画 ---
-                    const pageIndexMap = { "ABOUT_PAGE_1": 0, "ABOUT_PAGE_2": 1, "ABOUT_PAGE_3": 2, "ABOUT_PAGE_4": 3, "FADE_IN_ABOUT_1": 0, "FADE_IN_ABOUT_2": 1, "FADE_OUT_FROM_ABOUT_1": 0, "FADE_OUT_FROM_ABOUT_4": 3 };
+                    const pageIndexMap = { "ABOUT_PAGE_1": 0, "ABOUT_PAGE_2": 1, "ABOUT_PAGE_3": 2, "ABOUT_PAGE_4": 3,  "ABOUT_PAGE_5": 4, "FADE_IN_ABOUT_1": 0, "FADE_IN_ABOUT_2": 1, "FADE_OUT_FROM_ABOUT_1": 0, "FADE_OUT_FROM_ABOUT_5": 4 };
                     const pageIndex = pageIndexMap[this.game_state] ?? -1;
                     this.draw_title_and_about(pageIndex);
                     
@@ -1026,6 +1026,7 @@
     </script>
 </body>
 </html>
+
 
 
 
