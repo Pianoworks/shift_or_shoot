@@ -843,8 +843,8 @@
 	
             	// ★変更点1: Y軸のゴールゾーンを定義
             	const goal_y_center = board_rect.y + (board_rect.height / 2); // ボードY軸中心
-            	const goal_y_min = goal_y_center - 255;
-            	const goal_y_max = goal_y_center + 255;
+            	const goal_y_min = goal_y_center - 175;
+            	const goal_y_max = goal_y_center + 175;
 	
             	// 最優先: バースト条件をチェック
             	const opponentPlatesOutOfBounds = out_of_bounds_plates.filter(p => p.owner === opponent).length;
@@ -1039,6 +1039,7 @@
     </script>
 </body>
 </html>
+
 
 
 
