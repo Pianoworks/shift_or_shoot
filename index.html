@@ -466,72 +466,42 @@
                 this.perform_easy_ai_move(true);
             }
 
-        perform_hard_ai_move() {
-            // isMobileフラグでPCとスマホの処理を分岐
-            if (this.isMobile) {
-                this.perform_hard_ai_move_mobile();
-            } else {
-                this.perform_hard_ai_move_desktop();
-            }
-        }
-        // デスクトップ用の既存ロジックをリネーム
-        perform_hard_ai_move_desktop() {
-            const cpu_plates = this.plates.filter(p => p.owner === 2);
-            if (cpu_plates.length === 0) return;
+            /**
+            * HardモードのAI思考メインルーチン (軽量化版)
+            */
+            perform_hard_ai_move() {
+                const cpu_plates = this.plates.filter(p => p.owner === 2);
+                if (cpu_plates.length === 0) return;
 
-            // 優先度1: 2得点可能な完璧なシュートを探す
-            const bestOffensiveMove = this._findBestScoringMove(2, 2);
-            if (bestOffensiveMove) {
-                this.play_sound('shoot');
-                bestOffensiveMove.plate.apply_force_and_torque(bestOffensiveMove.force, new Vector2(0, 0));
-                return;
-            }
-            // 優先度2: プレイヤーの2点シュートを防ぐ
-            const bestDefensiveMove = this._findBestBlockingMove();
-            if (bestDefensiveMove) {
-                this.play_sound('shoot');
-                bestDefensiveMove.plate.apply_force_and_torque(bestDefensiveMove.force, new Vector2(0, 0));
-                return;
-            }
-            // 優先度3: 次のターンに繋がる有利な配置へ移動する
-            const bestSetupMove = this._findBestPositioningMove();
-            if (bestSetupMove) {
-                this.play_sound('shoot');
-                bestSetupMove.plate.apply_force_and_torque(bestSetupMove.force, new Vector2(0, 0));
-                return;
-            }
-            // フォールバック
-            this.perform_normal_ai_move();
-        }
+                // 優先度1: 2得点可能な完璧なシュートを探す
+                const bestOffensiveMove = this._findBestScoringMove(2, 2);
+                if (bestOffensiveMove) {
+                    this.play_sound('shoot');
+                    bestOffensiveMove.plate.apply_force_and_torque(bestOffensiveMove.force, new Vector2(0, 0));
+                    return;
+                }
 
-	        // ★★★ スマートフォン向けの軽量版AI ★★★
-    	    perform_hard_ai_move_mobile() {
-            const cpu_plates = this.plates.filter(p => p.owner === 2);
-            if (cpu_plates.length === 0) return;
-            // 優先度1: シュートを探す (シミュレーション回数を削減)
-            const bestOffensiveMove = this._findBestScoringMove(2, 2, true); // isMobileフラグをtrueに
-            if (bestOffensiveMove) {
-                this.play_sound('shoot');
-                bestOffensiveMove.plate.apply_force_and_torque(bestOffensiveMove.force, new Vector2(0, 0));
-                return;
+                // 優先度2: プレイヤーの2点シュートを防ぐ
+                const bestDefensiveMove = this._findBestBlockingMove();
+                if (bestDefensiveMove) {
+                    this.play_sound('shoot');
+                    bestDefensiveMove.plate.apply_force_and_torque(bestDefensiveMove.force, new Vector2(0, 0));
+                    return;
+                }
+
+                // 優先度3: 次のターンに繋がる有利な配置へ移動する
+                const bestSetupMove = this._findBestPositioningMove();
+                if (bestSetupMove) {
+                    this.play_sound('shoot');
+                    bestSetupMove.plate.apply_force_and_torque(bestSetupMove.force, new Vector2(0, 0));
+                    return;
+                }
+                
+                // ★変更点：思考パターン4を削除し、すぐにフォールバックへ
+                // フォールバック: 優先度1～3で見つからない場合はNormalの動きをする
+                this.perform_normal_ai_move();
             }
-            // 優先度2: 防御 (思考ロジックを簡略化)
-            const bestDefensiveMove = this._findBestBlockingMove(true); // isMobileフラグをtrueに
-            if (bestDefensiveMove) {
-                this.play_sound('shoot');
-                bestDefensiveMove.plate.apply_force_and_torque(bestDefensiveMove.force, new Vector2(0, 0));
-                return;
-            }
-            // 優先度3: 配置 (思考ロジックを簡略化)
-            const bestSetupMove = this._findBestPositioningMove(true); // isMobileフラグをtrueに
-            if (bestSetupMove) {
-                this.play_sound('shoot');
-                bestSetupMove.plate.apply_force_and_torque(bestSetupMove.force, new Vector2(0, 0));
-                return;
-            }
-            // フォールバック
-            this.perform_normal_ai_move();
-        }	
+
             /**
             * 盤面の状態を詳細にシミュレーションする内部関数
             * @param {Array} initial_plates - シミュレーション開始時のプレート配列
@@ -586,158 +556,191 @@
             * @param {number} target_score - 目標得点
             * @returns {object|null} 最善手 { plate, force } または null
             */
-/**
-         * 最も得点効率の良い手を探す
-         * @param {boolean} isMobile - モバイル版の軽量計算を行うか
-         */
-        _findBestScoringMove(player_id, target_score, isMobile = false) {
-            const shooting_plates = this.plates.filter(p => p.owner === player_id);
-            let best_move = null;
-            let min_force = Infinity;
+            _findBestScoringMove(player_id, target_score) {
+                const shooting_plates = this.plates.filter(p => p.owner === player_id);
+                let best_move = null;
+                let min_force = Infinity;
 
-            // isMobileの場合、シミュレーション回数を減らす
-            const power_step = isMobile ? 100 : 50;
-            const y_offset_step = isMobile ? this.PLATE_SIZE : this.PLATE_SIZE / 2;
-
-            for (const plate of shooting_plates) {
-                const board_y = (this.SCREEN_HEIGHT - this.BOARD_HEIGHT) / 2;
-                const goal_line_x = (player_id === 1) ? (this.SCREEN_WIDTH + this.BOARD_WIDTH) / 2 : (this.SCREEN_WIDTH - this.BOARD_WIDTH) / 2;
-                
-                for (let y_offset = 0; y_offset <= this.BOARD_HEIGHT; y_offset += y_offset_step) {
-                    const target_pos = new Vector2(goal_line_x, board_y + y_offset);
+                for (const plate of shooting_plates) {
+                    const board_y = (this.SCREEN_HEIGHT - this.BOARD_HEIGHT) / 2;
+                    const goal_line_x = (player_id === 1) ? (this.SCREEN_WIDTH + this.BOARD_WIDTH) / 2 : (this.SCREEN_WIDTH - this.BOARD_WIDTH) / 2;
                     
-                    for (let power = 100; power <= 300; power += power_step) {
-                        const direction = target_pos.sub(plate.pos);
-                        if (direction.lengthSquared() === 0) continue;
-                        const force = direction.normalize().multiply(power);
-                        const result = this._simulateMove(this.plates, plate, force);
+                    // ダウンザラインを含む、様々な角度を試す
+                    for (let y_offset = 0; y_offset <= this.BOARD_HEIGHT; y_offset += this.PLATE_SIZE / 2) {
+                        const target_pos = new Vector2(goal_line_x, board_y + y_offset);
+                        
+                        for (let power = 100; power <= 300; power += 50) {
+                            const direction = target_pos.sub(plate.pos);
+                            if (direction.lengthSquared() === 0) continue;
+                            const force = direction.normalize().multiply(power);
+                            const result = this._simulateMove(this.plates, plate, force);
 
-                        if (result.penalty_plates.length === 0) {
-                            const score = result.scored_plates.filter(p => p.owner === player_id).length * 2 + result.scored_plates.filter(p => p.owner !== player_id).length * 1;
-                            if (score >= target_score && force.length() < min_force) {
-                                min_force = force.length();
-                                best_move = { plate, force };
+                            if (result.penalty_plates.length === 0) {
+                                const score = result.scored_plates.filter(p => p.owner === player_id).length * 2 + result.scored_plates.filter(p => p.owner !== player_id).length * 1;
+                                if (score >= target_score && force.length() < min_force) {
+                                    min_force = force.length();
+                                    best_move = { plate, force };
+                                }
                             }
                         }
                     }
                 }
+                return best_move;
             }
-            return best_move;
-        }
-        
-        /**
-         * プレイヤーの勝ち筋を潰す最善の防御手を探す
-         * @param {boolean} isMobile - モバイル版の軽量計算を行うか
-         */
-        _findBestBlockingMove(isMobile = false) {
-            const player_plates = this.plates.filter(p => p.owner === 1);
-            const cpu_plates = this.plates.filter(p => p.owner === 2);
             
-            // 脅威となるプレイヤーのプレートを探す（ゴールに最も近い or 自陣に最も深く侵入している）
-            let threat_plate = null;
-            let min_dist_to_goal = Infinity;
-            player_plates.forEach(p => {
-                if (p.pos.x < this.SCREEN_WIDTH / 2) { // CPU陣内(左半分)にいるプレートのみを対象
-                    const dist = p.pos.x;
+            /**
+            * プレイヤーの勝ち筋を潰す最善の防御手を探す
+            * @returns {object|null} 最善手 { plate, force } または null
+            */
+
+                _findBestBlockingMove() {
+                console.log("findBestBlockingMove() is called."); // デバッグログ
+                const player_plates = this.plates.filter(p => p.owner === 1);
+                const cpu_plates = this.plates.filter(p => p.owner === 2);
+                const board_rect = {
+                    left: (this.SCREEN_WIDTH - this.BOARD_WIDTH) / 2,
+                    right: (this.SCREEN_WIDTH + this.BOARD_WIDTH) / 2,
+                    top: (this.SCREEN_HEIGHT - this.BOARD_HEIGHT) / 2,
+                    bottom: (this.SCREEN_HEIGHT + this.BOARD_HEIGHT) / 2
+                    };
+
+                // 1. 自陣に深く侵入しているプレイヤーの板（脅威）をすべて特定
+                const threatening_plates = player_plates.filter(p => p.pos.x < this.SCREEN_WIDTH / 2);
+
+                if (threatening_plates.length === 0) {
+                    return null;
+                }
+
+                // 2. 最も脅威となる板（ゴールに最も近い）を特定
+                let most_threatening_plate = null;
+                let min_dist_to_goal = Infinity;
+                for (const p of threatening_plates) {
+                    const dist = p.pos.x - board_rect.left;
                     if (dist < min_dist_to_goal) {
                         min_dist_to_goal = dist;
-                        threat_plate = p;
+                        most_threatening_plate = p;
                     }
                 }
-            });
 
-            if (!threat_plate) return null; // 脅威がなければ何もしない
-
-            // 脅威に最も近いディフェンダーを探す
-            let defender = null;
-            let min_dist_to_threat = Infinity;
-            cpu_plates.forEach(p => {
-                const dist = p.pos.distance(threat_plate.pos);
-                if (dist < min_dist_to_threat) {
-                    min_dist_to_threat = dist;
-                    defender = p;
+                // 3. 脅威プレートに最も近いCPUの板を探す
+                let best_defender = null;
+                let min_dist_to_threat = Infinity;
+                for (const defender of cpu_plates) {
+                    if (defender.pos && defender.pos instanceof Vector2) {
+                        const dist = defender.pos.distance(most_threatening_plate.pos);
+                        if (dist < min_dist_to_threat) {
+                            min_dist_to_threat = dist;
+                            best_defender = defender;
+                        }
+                    }
                 }
-            });
 
-            if (!defender) return null;
-
-            // ★モバイル向けの軽量な防御ロジック
-            if (isMobile) {
-                // 脅威を直接押し返す単純な一手を計算
-                const force = threat_plate.pos.sub(defender.pos).normalize().multiply(80);
-                const sim = this._simulateMove(this.plates, defender, force);
-                if (sim.penalty_plates.length === 0) {
-                    return { plate: defender, force: force };
+                if (!best_defender) {
+                    return null;
                 }
+
+                // 4. プレイヤーの板とゴールを結ぶ線上にブロックを配置
+                const block_pos = new Vector2(board_rect.left + this.PLATE_SIZE * 1.5, most_threatening_plate.pos.y);
+                const direction = block_pos.sub(best_defender.pos);
+
+                if (direction.lengthSquared() === 0) return null;
+
+                let best_move = null;
+                const powers = [30, 60, 90, 120];
+
+                for (const power of powers) {
+                    const block_force = direction.normalize().multiply(power);
+                    const block_sim = this._simulateMove(this.plates, best_defender, block_force);
+
+                    // 即時のペナルティ（盤外落下）がないかチェック
+                    if (block_sim.penalty_plates.length > 0) {
+                        continue;
+                    }
+
+                    // 1手先に新たなシュートチャンスが生まれないかチェック
+                    const new_threat = this._findBestScoringMove(1, 2, block_sim.final_plates);
+                    if (!new_threat) {
+                        return { plate: best_defender, force: block_force };
+                    }
+                }
+
                 return null;
             }
 
-            // ★PC向けの重いが正確な防御ロジック (既存のロジックを流用)
-            // 脅威プレートの進路上にブロックを試みる
-            const block_target_pos = new Vector2(threat_plate.pos.x + this.PLATE_SIZE, threat_plate.pos.y);
-            const direction = block_target_pos.sub(defender.pos);
-            if (direction.lengthSquared() === 0) return null;
+                    /**
+                    * 次のターンに有利になるような配置へ移動する手を探す
+                    * @returns {object|null} 最善手 { plate, force } または null
+                    */
 
-            for (let power = 30; power <= 120; power += 30) {
-                const block_force = direction.normalize().multiply(power);
-                const block_sim = this._simulateMove(this.plates, defender, block_force);
 
-                if (block_sim.penalty_plates.length > 0) continue;
+                    _findBestPositioningMove() {
+                        console.log("findBestPositioningMove() is called."); // デバッグログ
+                const player_plates = this.plates.filter(p => p.owner === 1);
+                const cpu_plates = this.plates.filter(p => p.owner === 2);
 
-                // ブロック後に新たな脅威が生まれないか、一手先を読む
-                const new_threat = this._findBestScoringMove(1, 2, false, block_sim.final_plates);
-                if (!new_threat) {
-                    return { plate: defender, force: block_force }; // 安全なブロック手が見つかった
+                if (player_plates.length !== 3 || cpu_plates.length !== 3) {
+                    return null;
                 }
-            }
 
-            return null; // 安全なブロック手が見つからなかった
-        }
-        
-        /**
-         * 次のターンに有利になるような配置へ移動する手を探す
-         * @param {boolean} isMobile - モバイル版の軽量計算を行うか
-         */
-        _findBestPositioningMove(isMobile = false) {
-            const cpu_plates = this.plates.filter(p => p.owner === 2);
-            if (cpu_plates.length === 0) return null;
-            let candidate_moves = [];
+                player_plates.sort((a, b) => a.pos.x - b.pos.x);
+                const [A, B, C] = player_plates;
 
-            const attempts = isMobile ? 3 : 10; // スマホでは試行回数を減らす
-
-            for(let i=0; i < attempts; i++) {
-                const plate = cpu_plates[Math.floor(Math.random() * cpu_plates.length)];
-                // 敵陣中央あたりを狙う
-                const target_pos = new Vector2(
-                    this.SCREEN_WIDTH * 0.75 + (Math.random() - 0.5) * 100,
-                    this.SCREEN_HEIGHT / 2 + (Math.random() - 0.5) * this.BOARD_HEIGHT
-                );
-                const force = target_pos.sub(plate.pos).normalize().multiply(30 + Math.random() * 20);
-                
-                const move_sim = this._simulateMove(this.plates, plate, force);
-                if (move_sim.penalty_plates.length > 0) continue;
-                
-                // ★モバイルでは一手先読みを省略し、ペナルティがないだけで候補とする
-                if (isMobile) {
-                    candidate_moves.push({plate, force});
-                    continue;
+                let D = null;
+                let min_dist_to_A = Infinity;
+                for (const cpu_plate of cpu_plates) {
+                    const dist = cpu_plate.pos.distance(A.pos);
+                    if (dist < min_dist_to_A) {
+                        min_dist_to_A = dist;
+                        D = cpu_plate;
+                    }
                 }
-                
-                // PCでは二手先まで読んで有利・不利を判定
-                const threat_after_move = this._findBestScoringMove(1, 2, false, move_sim.final_plates);
-                if (threat_after_move) continue;
 
-                const opportunity_after_move = this._findBestScoringMove(2, 2, false, move_sim.final_plates);
-                if (opportunity_after_move) {
-                    candidate_moves.push({plate, force});
+                const remaining_cpu_plates = cpu_plates.filter(p => p.id !== D.id);
+
+                let E = null;
+                let min_dist_to_B = Infinity;
+                for (const cpu_plate of remaining_cpu_plates) {
+                    const dist = cpu_plate.pos.distance(B.pos);
+                    if (dist < min_dist_to_B) {
+                        min_dist_to_B = dist;
+                        E = cpu_plate;
+                    }
                 }
-            }
 
-            if (candidate_moves.length > 0) {
-                return candidate_moves[Math.floor(Math.random() * candidate_moves.length)];
+                const F = remaining_cpu_plates.find(p => p.id !== E.id);
+                if (!F) return null;
+
+                const target_pos = new Vector2(C.pos.x + this.PLATE_SIZE * 1.5, C.pos.y);
+
+                // 変数宣言をここに移動
+                const direction = target_pos.sub(F.pos);
+                if (direction.lengthSquared() === 0) return null;
+
+                const powers = [30, 75, 120];
+                let best_move = null;
+                let min_dist_to_target = Infinity;
+
+                for (const power of powers) {
+                    // ループ内でdirectionを再宣言しないように修正
+                    const move_force = direction.normalize().multiply(power);
+                    const sim = this._simulateMove(this.plates, F, move_force);
+
+                    if (sim.penalty_plates.length > 0) {
+                        continue;
+                    }
+
+                    const final_F = sim.final_plates.find(p => p.id === F.id);
+                    if (final_F) {
+                        const dist_to_target = final_F.pos.distance(target_pos);
+                        if (dist_to_target < min_dist_to_target) {
+                            min_dist_to_target = dist_to_target;
+                            best_move = { plate: F, force: move_force };
+                        }
+                    }
+                }
+
+                return best_move;
             }
-            return null;
-        }
 
             // 既存の simulate_shot 関数は、上記のAIロジックでは使われなくなるため、
             // 削除しても、残しておいても問題ありません。
@@ -1036,15 +1039,3 @@
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
